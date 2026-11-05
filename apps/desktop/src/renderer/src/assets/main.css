@@ -1,0 +1,125 @@
+@import './base.css';
+
+:root {
+  --accent: #6c8cff;
+  --warning: #f0b429;
+  --danger: #ef5b5b;
+  --border: var(--ev-c-gray-3);
+}
+
+body {
+  user-select: none;
+}
+
+#root {
+  padding: 16px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+h2 {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ev-c-text-2);
+  margin-bottom: 8px;
+}
+
+button,
+select,
+input[type='text'] {
+  font: inherit;
+  font-size: 14px;
+  color: var(--color-text);
+  background: var(--ev-button-alt-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--ev-button-alt-hover-bg);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+input[type='range'] {
+  accent-color: var(--accent);
+}
+
+.toolbar {
+  display: flex;
+  gap: 8px;
+}
+
+.outputs {
+  display: grid;
+  grid-template-columns: max-content minmax(200px, 1fr) 140px;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.outputs select.missing {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.sounds {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.sound-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--color-background-soft);
+}
+
+.sound-card .play {
+  height: 56px;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sound-card .play.error {
+  background: var(--danger);
+}
+
+.sound-card .row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.sound-card .row > input[type='range'] {
+  flex: 1;
+}
+
+.sound-card .error-text {
+  font-size: 12px;
+  color: var(--danger);
+  word-break: break-all;
+}
+
+.empty {
+  color: var(--ev-c-text-2);
+}

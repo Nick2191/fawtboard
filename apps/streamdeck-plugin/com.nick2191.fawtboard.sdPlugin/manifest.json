@@ -1,0 +1,62 @@
+{
+	"Name": "fawtboard",
+	"Version": "0.1.0.0",
+	"Author": "nick2191",
+	"Actions": [
+		{
+			"Name": "Play Sound",
+			"UUID": "com.nick2191.fawtboard.play",
+			"Icon": "imgs/actions/sound/icon",
+			"Tooltip": "Plays a fawtboard sound on your monitor and Discord outputs.",
+			"PropertyInspectorPath": "ui/play-sound.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/sound/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Stop All Sounds",
+			"UUID": "com.nick2191.fawtboard.stop-all",
+			"Icon": "imgs/actions/sound/icon",
+			"Tooltip": "Stops every fawtboard sound that is playing.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/sound/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		}
+	],
+	"Category": "fawtboard",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "bin/plugin.js",
+	"Description": "Trigger fawtboard soundboard sounds from Stream Deck keys.",
+	"Icon": "imgs/plugin/marketplace",
+	"SDKVersion": 3,
+	"Software": {
+		"MinimumVersion": "7.1"
+	},
+	"OS": [
+		{
+			"Platform": "mac",
+			"MinimumVersion": "12"
+		},
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "24",
+		"Debug": "enabled"
+	},
+	"UUID": "com.nick2191.fawtboard"
+}

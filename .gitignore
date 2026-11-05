@@ -1,0 +1,6 @@
+node_modules/
+dist/
+out/
+*.streamDeckPlugin
+apps/streamdeck-plugin/*.sdPlugin/bin/
+apps/streamdeck-plugin/*.sdPlugin/logs/

@@ -1,0 +1,8 @@
+{
+  "name": "fawtboard",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ]
+}
