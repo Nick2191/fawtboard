@@ -4,6 +4,7 @@ import type { SoundState } from '../audio/engine'
 import type { Sound } from '../../../shared/types'
 import { PAD_COLORS, padColor } from '../lib/colors'
 import { formatDuration } from '../lib/format'
+import { soundImageUrl } from '../lib/keyImage'
 import { PLAY_MODES } from '../lib/modes'
 
 type Props = {
@@ -39,6 +40,7 @@ export default function SoundPad(props: Props): React.JSX.Element {
       data-playing={playing}
       data-dragging={props.dragging}
       data-recent={props.recent}
+      data-art={sound.image !== undefined}
       style={{ '--pad': PAD_COLORS[padColor(sound)] } as CSSProperties}
       draggable={props.reorderable}
       onDragStart={(e) => {
@@ -64,6 +66,12 @@ export default function SoundPad(props: Props): React.JSX.Element {
           props.onMove(e.key === 'ArrowLeft' ? -1 : 1)
         }}
       >
+        {sound.image && (
+          <span
+            className="pad-art"
+            style={{ backgroundImage: `url("${soundImageUrl(sound.image)}")` }}
+          />
+        )}
         <span className="pad-name">{sound.name}</span>
         <span className="pad-meta">
           {state === 'error' ? (

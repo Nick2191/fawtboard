@@ -283,9 +283,10 @@ export class AudioEngine extends EventTarget {
     return this.monitor.playingCount
   }
 
-  play(id: string): void {
+  /** Returns false when there is nothing playable under `id`: removed, still loading, or broken. */
+  play(id: string): boolean {
     const sound = this.sounds.get(id)
-    if (!sound || this.state(id) !== 'ready') return
+    if (!sound || this.state(id) !== 'ready') return false
     switch (sound.mode) {
       case 'restart':
         this.both.forEach((o) => o.stop(id))
@@ -293,7 +294,7 @@ export class AudioEngine extends EventTarget {
       case 'toggle':
         if (this.isPlaying(id)) {
           this.both.forEach((o) => o.stop(id))
-          return
+          return true
         }
         break
       case 'overlap':
@@ -303,6 +304,7 @@ export class AudioEngine extends EventTarget {
     this.both.forEach((o) => o.start(id, sound.volume))
     this.playCounts.set(id, this.playCount(id) + 1)
     this.changed()
+    return true
   }
 
   stop(id: string): void {

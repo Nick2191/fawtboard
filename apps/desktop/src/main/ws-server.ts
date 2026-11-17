@@ -8,12 +8,23 @@ import type { LibraryStore } from './library'
 const FAWTBOARD_PORT = Number(process.env['FAWTBOARD_PORT']) || 39217
 
 function summarize(library: Library): SoundSummary[] {
-  return library.sounds.map(({ id, name }) => ({ id, name }))
+  return library.sounds.map(({ id, name, image }) => ({
+    id,
+    name,
+    ...(image ? { imageId: image } : {})
+  }))
+}
+
+function send(ws: WebSocket, msg: AppToPlugin): void {
+  if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
 }
 
 type Handlers = {
-  onPlay(soundId: string): void
-  onStopAll(): void
+  /** Resolves false when the sound is gone or can't be played. */
+  play(soundId: string): Promise<boolean>
+  stopAll(): void
+  /** A sound's image as a PNG data URL, or null when it has none. */
+  readImage(soundId: string): Promise<string | null>
   onStatus(status: StreamDeckStatus): void
 }
 
@@ -59,28 +70,39 @@ export function startWsServer(store: LibraryStore, handlers: Handlers): () => St
         return
       }
       switch (msg?.type) {
-        case 'listSounds': {
-          const reply: AppToPlugin = {
-            type: 'sounds',
-            requestId: msg.requestId,
-            sounds: summarize(store.get())
-          }
-          ws.send(JSON.stringify(reply))
+        case 'listSounds':
+          send(ws, { type: 'sounds', requestId: msg.requestId, sounds: summarize(store.get()) })
+          break
+        case 'play': {
+          const { soundId, requestId } = msg
+          if (typeof soundId !== 'string') break
+          void handlers.play(soundId).then((ok) => {
+            if (typeof requestId === 'string') send(ws, { type: 'playResult', requestId, ok })
+          })
           break
         }
-        case 'play':
-          if (typeof msg.soundId === 'string') handlers.onPlay(msg.soundId)
-          break
         case 'stopAll':
-          handlers.onStopAll()
+          handlers.stopAll()
           break
+        case 'getImage': {
+          const { soundId, requestId } = msg
+          if (typeof soundId !== 'string' || typeof requestId !== 'string') break
+          void handlers
+            .readImage(soundId)
+            .then((image) => send(ws, { type: 'image', requestId, image }))
+          break
+        }
       }
     })
   })
 
+  // Most library changes (a volume drag, a setting) leave what the plugin sees untouched.
+  let lastPayload = ''
   store.on('changed', (library) => {
     const push: AppToPlugin = { type: 'soundsChanged', sounds: summarize(library) }
     const payload = JSON.stringify(push)
+    if (payload === lastPayload) return
+    lastPayload = payload
     for (const client of wss.clients) {
       if (client.readyState === WebSocket.OPEN) client.send(payload)
     }

@@ -1,8 +1,18 @@
-import { useRef, type CSSProperties } from 'react'
-import { FolderOpen, Play, Replace, Square, Trash2, TriangleAlert, X } from 'lucide-react'
+import { useRef, useState, type CSSProperties } from 'react'
+import {
+  FolderOpen,
+  ImagePlus,
+  Play,
+  Replace,
+  Square,
+  Trash2,
+  TriangleAlert,
+  X
+} from 'lucide-react'
 import type { AudioEngine } from '../audio/engine'
 import type { PlayMode, Sound } from '../../../shared/types'
 import { PAD_COLORS, padColor, type PadColor } from '../lib/colors'
+import { soundImageUrl, toKeyImage } from '../lib/keyImage'
 import { PLAY_MODES } from '../lib/modes'
 import Modal from './Modal'
 import Slider from './Slider'
@@ -26,6 +36,17 @@ export default function SoundEditor({
   const error = engine.errors.get(sound.id)
   const playing = engine.isPlaying(sound.id)
   const color = padColor(sound)
+  const [imageError, setImageError] = useState<string | null>(null)
+
+  const chooseImage = async (): Promise<void> => {
+    setImageError(null)
+    try {
+      const bytes = await api.pickImage()
+      if (bytes) await api.setSoundImage(sound.id, await toKeyImage(bytes))
+    } catch {
+      setImageError('That file isn’t an image fawtboard can read. Try a PNG, JPEG, WebP or GIF.')
+    }
+  }
 
   return (
     <Modal
@@ -77,6 +98,44 @@ export default function SoundEditor({
             }}
           />
         </label>
+
+        <div className="field">
+          <span className="field-label">Image</span>
+          <div className="image-field">
+            <button
+              className="image-well"
+              aria-label={sound.image ? 'Change image' : 'Choose image'}
+              onClick={() => void chooseImage()}
+            >
+              {sound.image ? (
+                <img src={soundImageUrl(sound.image)} alt="" draggable={false} />
+              ) : (
+                <ImagePlus size={20} aria-hidden />
+              )}
+            </button>
+            <div className="image-actions">
+              <div className="field-row">
+                <button className="btn btn-small" onClick={() => void chooseImage()}>
+                  {sound.image ? 'Change…' : 'Choose image…'}
+                </button>
+                {sound.image && (
+                  <button
+                    className="btn btn-small"
+                    onClick={() => void api.setSoundImage(sound.id, null)}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <p className="field-hint">Shown on the pad and on this sound’s Stream Deck key.</p>
+            </div>
+          </div>
+          {imageError && (
+            <p className="field-error" role="alert">
+              {imageError}
+            </p>
+          )}
+        </div>
 
         <div className="field" role="radiogroup" aria-labelledby="editor-color">
           <span className="field-label" id="editor-color">

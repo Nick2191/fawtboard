@@ -7,7 +7,7 @@
 			"Name": "Play Sound",
 			"UUID": "com.nick2191.fawtboard.play",
 			"Icon": "imgs/actions/sound/icon",
-			"Tooltip": "Plays a fawtboard sound on your monitor and Discord outputs.",
+			"Tooltip": "Plays a fawtboard sound to both outputs: what you hear and what others hear.",
 			"PropertyInspectorPath": "ui/play-sound.html",
 			"Controllers": [
 				"Keypad"

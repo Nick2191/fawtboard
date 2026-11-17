@@ -5,20 +5,25 @@ import {
   ipcMain,
   dialog,
   nativeTheme,
+  net,
   Notification,
+  protocol,
   session,
   Tray,
   Menu
 } from 'electron'
 import { join } from 'path'
+import { pathToFileURL } from 'url'
 import { existsSync, writeFileSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { SoundImages } from './images'
 import { LibraryStore } from './library'
 import { startWsServer } from './ws-server'
 import {
   AUDIO_EXTENSIONS,
+  IMAGE_SCHEME,
   type AudioConfig,
   type Settings,
   type Sound,
@@ -27,6 +32,15 @@ import {
 } from '../shared/types'
 
 const AUDIO_FILTERS = [{ name: 'Audio', extensions: AUDIO_EXTENSIONS }]
+// What the renderer can decode into a key image; see renderer `lib/keyImage`.
+const IMAGE_FILTERS = [
+  { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'avif'] }
+]
+
+// Has to happen before the app is ready. "secure" lets the dev server's http page load it.
+protocol.registerSchemesAsPrivileged([
+  { scheme: IMAGE_SCHEME, privileges: { standard: true, secure: true } }
+])
 
 /** The renderer's --bg in each theme, so the window never flashes the wrong colour while loading. */
 function windowBackground(): string {
@@ -145,7 +159,34 @@ function showOpenDialog(
   return mainWindow ? dialog.showOpenDialog(mainWindow, options) : dialog.showOpenDialog(options)
 }
 
-function registerIpc(store: LibraryStore, streamDeckStatus: () => StreamDeckStatus): void {
+/**
+ * Plays a sound in the renderer's engine and resolves with whether it could: false when the
+ * sound is gone, its file is missing or undecodable, or the renderer doesn't answer.
+ */
+function createPlayer(win: BrowserWindow): (soundId: string) => Promise<boolean> {
+  let nextRequest = 0
+  const pending = new Map<number, (ok: boolean) => void>()
+  ipcMain.on('engine:played', (_e, requestId: number, ok: boolean) => pending.get(requestId)?.(ok))
+  return (soundId) => {
+    const { promise, resolve } = Promise.withResolvers<boolean>()
+    const requestId = nextRequest++
+    const settle = (ok: boolean): void => {
+      clearTimeout(timer)
+      pending.delete(requestId)
+      resolve(ok)
+    }
+    const timer = setTimeout(() => settle(false), 1000)
+    pending.set(requestId, settle)
+    win.webContents.send('engine:play', soundId, requestId)
+    return promise
+  }
+}
+
+function registerIpc(
+  store: LibraryStore,
+  images: SoundImages,
+  streamDeckStatus: () => StreamDeckStatus
+): void {
   ipcMain.handle('library:get', () => store.get())
   ipcMain.handle('library:addFiles', async () => {
     const { importDir, settings } = store.get()
@@ -202,6 +243,15 @@ function registerIpc(store: LibraryStore, streamDeckStatus: () => StreamDeckStat
     const sound = store.findSound(id)
     if (sound) shell.showItemInFolder(sound.filePath)
   })
+  ipcMain.handle('image:pick', async () => {
+    const result = await showOpenDialog({ properties: ['openFile'], filters: IMAGE_FILTERS })
+    if (result.canceled || result.filePaths.length === 0) return null
+    const buf = await readFile(result.filePaths[0])
+    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
+  })
+  ipcMain.handle('sound:setImage', (_e, id: string, png: ArrayBuffer | null) =>
+    store.setSoundImage(id, png ? images.save(new Uint8Array(png)) : undefined)
+  )
   ipcMain.handle('streamDeck:status', () => streamDeckStatus())
 }
 
@@ -229,7 +279,14 @@ if (!app.requestSingleInstanceLock()) {
       callback(allowed(permission))
     )
 
-    const store = new LibraryStore(join(app.getPath('userData'), 'library.json'))
+    const userData = app.getPath('userData')
+    const store = new LibraryStore(join(userData, 'library.json'))
+    const images = new SoundImages(join(userData, 'images'))
+    images.prune(new Set(store.get().sounds.flatMap((s) => s.image ?? [])))
+    protocol.handle(IMAGE_SCHEME, (request) =>
+      net.fetch(pathToFileURL(images.file(decodeURIComponent(new URL(request.url).pathname))).href)
+    )
+
     // Also drives the renderer's prefers-color-scheme, the title bar and native dialogs.
     nativeTheme.themeSource = store.get().settings.theme
     const win = createWindow()
@@ -242,11 +299,15 @@ if (!app.requestSingleInstanceLock()) {
       win.webContents.send('library:changed', library)
     })
     const streamDeckStatus = startWsServer(store, {
-      onPlay: (soundId) => win.webContents.send('engine:play', soundId),
-      onStopAll: () => win.webContents.send('engine:stopAll'),
+      play: createPlayer(win),
+      stopAll: () => win.webContents.send('engine:stopAll'),
+      readImage: async (soundId) => {
+        const image = store.findSound(soundId)?.image
+        return image ? images.dataUrl(image) : null
+      },
       onStatus: (status) => win.webContents.send('streamDeck:status', status)
     })
-    registerIpc(store, streamDeckStatus)
+    registerIpc(store, images, streamDeckStatus)
     createTray()
 
     app.on('activate', showWindow)

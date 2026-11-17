@@ -25,9 +25,14 @@ export interface FawtboardApi {
   chooseAddFolder(): Promise<boolean>
   readSound(id: string): Promise<ArrayBuffer>
   revealSound(id: string): Promise<void>
+  /** Opens the file picker and resolves with the chosen image's bytes, or null when cancelled. */
+  pickImage(): Promise<ArrayBuffer | null>
+  /** `png` is the prepared key image; null removes the sound's image. */
+  setSoundImage(id: string, png: ArrayBuffer | null): Promise<void>
   getStreamDeckStatus(): Promise<StreamDeckStatus>
   onLibraryChanged(cb: (library: Library) => void): () => void
-  onPlay(cb: (id: string) => void): () => void
+  /** `cb` returns whether the sound could be played. */
+  onPlay(cb: (id: string) => boolean): () => void
   onStopAll(cb: () => void): () => void
   onStreamDeckStatus(cb: (status: StreamDeckStatus) => void): () => void
 }

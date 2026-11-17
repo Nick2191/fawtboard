@@ -10,14 +10,20 @@ const REQUEST_TIMEOUT_MS = 2000;
 /** Connection to the fawtboard desktop app; reconnects forever while the plugin runs. */
 class AppClient extends EventEmitter<{ soundsChanged: [SoundSummary[]] }> {
 	private socket: WebSocket | null = null;
-	private readonly pending = new Map<string, (sounds: SoundSummary[]) => void>();
+	private readonly pending = new Map<string, (reply: AppToPlugin) => void>();
 	connected = false;
+	/** The app's latest sound list. Kept across a disconnect so keys hold on to their images. */
+	sounds: SoundSummary[] = [];
 
 	connect(): void {
 		const socket = new WebSocket(`ws://127.0.0.1:${FAWTBOARD_PORT}`);
 		this.socket = socket;
 		socket.on("open", () => {
 			this.connected = true;
+			// Changes are pushed from here on, but the list as it stands has to be asked for.
+			void this.listSounds().then((sounds) => {
+				if (sounds) this.setSounds(sounds);
+			});
 		});
 		socket.on("message", (data) => {
 			let msg: AppToPlugin;
@@ -26,12 +32,8 @@ class AppClient extends EventEmitter<{ soundsChanged: [SoundSummary[]] }> {
 			} catch {
 				return;
 			}
-			if (msg.type === "sounds") {
-				this.pending.get(msg.requestId)?.(msg.sounds);
-				this.pending.delete(msg.requestId);
-			} else if (msg.type === "soundsChanged") {
-				this.emit("soundsChanged", msg.sounds);
-			}
+			if (msg.type === "soundsChanged") this.setSounds(msg.sounds);
+			else this.pending.get(msg.requestId)?.(msg);
 		});
 		// "error" is always followed by "close"; reconnect only from "close" to avoid double timers.
 		socket.on("error", () => {});
@@ -41,6 +43,11 @@ class AppClient extends EventEmitter<{ soundsChanged: [SoundSummary[]] }> {
 		});
 	}
 
+	private setSounds(sounds: SoundSummary[]): void {
+		this.sounds = sounds;
+		this.emit("soundsChanged", sounds);
+	}
+
 	/** Returns false when the app is not reachable. */
 	send(msg: PluginToApp): boolean {
 		if (!this.connected || !this.socket) return false;
@@ -48,20 +55,39 @@ class AppClient extends EventEmitter<{ soundsChanged: [SoundSummary[]] }> {
 		return true;
 	}
 
-	/** Sound list from the app, or null when it is not running / does not answer in time. */
-	listSounds(): Promise<SoundSummary[] | null> {
+	/** Sends a request and resolves with the app's reply, or null when it is unreachable or silent. */
+	private ask(build: (requestId: string) => PluginToApp): Promise<AppToPlugin | null> {
 		const requestId = randomUUID();
-		if (!this.send({ type: "listSounds", requestId })) return Promise.resolve(null);
-		const { promise, resolve } = Promise.withResolvers<SoundSummary[] | null>();
-		const timer = setTimeout(() => {
-			this.pending.delete(requestId);
-			resolve(null);
-		}, REQUEST_TIMEOUT_MS);
-		this.pending.set(requestId, (sounds) => {
+		if (!this.send(build(requestId))) return Promise.resolve(null);
+		const { promise, resolve } = Promise.withResolvers<AppToPlugin | null>();
+		const settle = (reply: AppToPlugin | null): void => {
 			clearTimeout(timer);
-			resolve(sounds);
-		});
+			this.pending.delete(requestId);
+			resolve(reply);
+		};
+		const timer = setTimeout(() => settle(null), REQUEST_TIMEOUT_MS);
+		this.pending.set(requestId, settle);
 		return promise;
+	}
+
+	/** Sound list from the app, or null when it is not running / does not answer in time. */
+	async listSounds(): Promise<SoundSummary[] | null> {
+		const reply = await this.ask((requestId) => ({ type: "listSounds", requestId }));
+		return reply?.type === "sounds" ? reply.sounds : null;
+	}
+
+	/** Resolves false when the app is not running, or says the sound is gone or can't be played. */
+	async play(soundId: string): Promise<boolean> {
+		if (!this.connected) return false;
+		const reply = await this.ask((requestId) => ({ type: "play", soundId, requestId }));
+		// Only an explicit "no" is a failure: an older app plays the sound but never answers.
+		return reply?.type === "playResult" ? reply.ok : true;
+	}
+
+	/** A sound's image as a data URL, or null when it has none or the app does not answer. */
+	async image(soundId: string): Promise<string | null> {
+		const reply = await this.ask((requestId) => ({ type: "getImage", soundId, requestId }));
+		return reply?.type === "image" ? reply.image : null;
 	}
 }
 

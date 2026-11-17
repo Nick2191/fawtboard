@@ -1,5 +1,8 @@
 export const AUDIO_EXTENSIONS = ['mp3', 'wav', 'flac', 'ogg', 'm4a']
 
+/** URL scheme the renderer loads sound images from: `fawtboard-image://sound/<Sound.image>`. */
+export const IMAGE_SCHEME = 'fawtboard-image'
+
 export type PlayMode = 'restart' | 'overlap' | 'toggle'
 
 export type Sound = {
@@ -10,6 +13,8 @@ export type Sound = {
   mode: PlayMode
   /** Palette key (see renderer `lib/colors`). Unset sounds get a stable colour derived from their id. */
   color?: string
+  /** File name of this sound's picture in the app's images folder, shown on its pad and Stream Deck key. */
+  image?: string
 }
 
 export type DeviceRef = { deviceId: string; label: string } | null

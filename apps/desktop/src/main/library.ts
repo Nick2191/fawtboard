@@ -105,6 +105,11 @@ export class LibraryStore extends EventEmitter<{ changed: [Library] }> {
     this.patchSound(id, { filePath })
   }
 
+  /** `image` is a file name from SoundImages; undefined removes the sound's image. */
+  setSoundImage(id: string, image: string | undefined): void {
+    this.patchSound(id, { image })
+  }
+
   removeSound(id: string): void {
     this.commit({ ...this.library, sounds: this.library.sounds.filter((s) => s.id !== id) })
   }

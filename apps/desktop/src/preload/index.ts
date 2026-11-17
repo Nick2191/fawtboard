@@ -40,10 +40,17 @@ const fawtboard = {
   chooseAddFolder: (): Promise<boolean> => ipcRenderer.invoke('settings:chooseAddFolder'),
   readSound: (id: string): Promise<ArrayBuffer> => ipcRenderer.invoke('sound:read', id),
   revealSound: (id: string): Promise<void> => ipcRenderer.invoke('sound:reveal', id),
+  pickImage: (): Promise<ArrayBuffer | null> => ipcRenderer.invoke('image:pick'),
+  setSoundImage: (id: string, png: ArrayBuffer | null): Promise<void> =>
+    ipcRenderer.invoke('sound:setImage', id, png),
   getStreamDeckStatus: (): Promise<StreamDeckStatus> => ipcRenderer.invoke('streamDeck:status'),
   onLibraryChanged: (cb: (library: Library) => void): (() => void) =>
     subscribe('library:changed', cb),
-  onPlay: (cb: (id: string) => void): (() => void) => subscribe('engine:play', cb),
+  // The callback's answer goes back to main so a Stream Deck key can show when a play failed.
+  onPlay: (cb: (id: string) => boolean): (() => void) =>
+    subscribe('engine:play', (id: string, requestId: number) =>
+      ipcRenderer.send('engine:played', requestId, cb(id))
+    ),
   onStopAll: (cb: () => void): (() => void) => subscribe('engine:stopAll', cb),
   onStreamDeckStatus: (cb: (status: StreamDeckStatus) => void): (() => void) =>
     subscribe('streamDeck:status', cb)

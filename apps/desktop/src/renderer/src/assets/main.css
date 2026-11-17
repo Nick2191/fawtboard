@@ -641,6 +641,42 @@ kbd {
   box-shadow: var(--focus-ring);
 }
 
+/* A sound's picture: a square on the pad's right edge that fades into the pad's colour, so the
+   picture never has to be cropped to the pad's shape. */
+.pad-art {
+  position: absolute;
+  inset: 0 0 0 auto;
+  aspect-ratio: 1;
+  background-position: center;
+  background-size: cover;
+  opacity: 0.8;
+  mask-image: linear-gradient(to right, transparent, #000 70%);
+  transition: opacity 140ms;
+}
+
+.pad-trigger:hover .pad-art,
+.pad[data-playing='true'] .pad-art {
+  opacity: 1;
+}
+
+.pad[data-state='error'] .pad-art {
+  opacity: 0.25;
+  filter: grayscale(1);
+}
+
+/* Text sits above the picture, with a halo in the page's own tone so it reads over any image. */
+.pad-name,
+.pad-meta {
+  position: relative;
+}
+
+.pad[data-art='true'] .pad-name,
+.pad[data-art='true'] .pad-meta {
+  text-shadow:
+    0 0 2px var(--surface),
+    0 0 8px var(--surface);
+}
+
 .pad-name {
   display: -webkit-box;
   /* Leaves room for the edit button in the top-right corner. */
@@ -1073,6 +1109,57 @@ kbd {
 .field-hint {
   font-size: 12.5px;
   color: var(--text-faint);
+}
+
+.field-error {
+  font-size: 12.5px;
+  color: var(--danger);
+}
+
+.image-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.image-well {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  overflow: hidden;
+  color: var(--text-faint);
+  background: var(--inset);
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  transition:
+    color 120ms,
+    border-color 120ms;
+}
+
+.image-well:hover {
+  color: var(--text);
+  border-color: var(--text-faint);
+}
+
+.image-well:has(img) {
+  border-style: solid;
+}
+
+.image-well img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
 }
 
 .swatches {

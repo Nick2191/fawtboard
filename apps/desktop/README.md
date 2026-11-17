@@ -8,7 +8,8 @@ A lightweight soundboard. Every sound plays to two outputs at once: one you hear
 
 - **Add sounds**: drop audio files anywhere in the window, or use **Add sounds**. MP3, WAV, FLAC, OGG and M4A are supported. Files are used in place, not copied.
 - **Play**: click a pad. A playing pad shows its progress and a stop button.
-- **Edit**: right-click a pad, or use its **⋯** button, to change its name, color, volume, play mode or file.
+- **Edit**: right-click a pad, or use its **⋯** button, to change its name, image, color, volume, play mode or file.
+- **Images**: a sound's image shows on its pad and, automatically, on any Stream Deck key set to that sound. PNG, JPEG, WebP, GIF, BMP and AVIF work; the picture is cropped to a square and a copy is kept in the app's data folder, so the original can be moved or deleted.
 - **Reorder**: drag a pad, or focus it and press Alt+Left / Alt+Right.
 
 **Settings** (the gear button) has three sections:
