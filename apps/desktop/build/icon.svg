@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 64 64">
+  <!-- The fawtboard mark: a 2×2 pad grid with one pad lit. Source for every icon format;
+       regenerate them with scripts/generate-icons.sh. Mirrors components/Logo.tsx. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8f7dff"/>
+      <stop offset="1" stop-color="#5b46e8"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#bg)"/>
+  <rect x="13" y="13" width="17" height="17" rx="5" fill="#fff"/>
+  <rect x="34" y="13" width="17" height="17" rx="5" fill="#fff" fill-opacity="0.35"/>
+  <rect x="13" y="34" width="17" height="17" rx="5" fill="#fff" fill-opacity="0.35"/>
+  <rect x="34" y="34" width="17" height="17" rx="5" fill="#fff" fill-opacity="0.35"/>
+</svg>

@@ -1,6 +1,18 @@
-import type { DeviceRef, Library, Sound } from '../../../shared/types'
+import {
+  SYSTEM_DEFAULT_DEVICE,
+  type DeviceRef,
+  type Library,
+  type Sound
+} from '../../../shared/types'
 
 type SinkId = string | { type: 'none' }
+
+/** Where an output currently goes. `missing`: a device was chosen but is not plugged in. */
+export type Route =
+  | { kind: 'off' }
+  | { kind: 'default' }
+  | { kind: 'device'; device: MediaDeviceInfo }
+  | { kind: 'missing'; label: string }
 
 class AudioOutput {
   readonly ctx = new AudioContext({ latencyHint: 'interactive' })
@@ -9,13 +21,19 @@ class AudioOutput {
   private readonly active = new Map<string, Set<AudioBufferSourceNode>>()
   private sink: SinkId = ''
 
-  constructor() {
+  /** `onEnded` fires whenever a playing source finishes or is stopped. */
+  constructor(private readonly onEnded: () => void) {
     this.master.connect(this.ctx.destination)
   }
 
-  /** Routes this output to `deviceId`, or silences it when no device resolved. */
-  async setDevice(deviceId: string | null): Promise<void> {
-    const next: SinkId = deviceId ?? { type: 'none' }
+  /** Routes this output to a device, the system default, or silence. */
+  async setRoute(route: Route): Promise<void> {
+    const next: SinkId =
+      route.kind === 'device'
+        ? route.device.deviceId
+        : route.kind === 'default'
+          ? ''
+          : { type: 'none' }
     if (JSON.stringify(next) === JSON.stringify(this.sink)) return
     this.sink = next
     await this.ctx.setSinkId(next)
@@ -26,8 +44,17 @@ class AudioOutput {
     this.buffers.set(id, await this.ctx.decodeAudioData(bytes.slice(0)))
   }
 
+  unload(id: string): void {
+    this.stop(id)
+    this.buffers.delete(id)
+  }
+
   isPlaying(id: string): boolean {
     return (this.active.get(id)?.size ?? 0) > 0
+  }
+
+  get playingCount(): number {
+    return this.active.size
   }
 
   start(id: string, volume: number): void {
@@ -49,6 +76,7 @@ class AudioOutput {
       playing.delete(source)
       gain.disconnect()
       if (playing.size === 0 && this.active.get(id) === playing) this.active.delete(id)
+      this.onEnded()
     }
     source.start()
   }
@@ -59,6 +87,24 @@ class AudioOutput {
 
   stopAll(): void {
     for (const id of this.active.keys()) this.stop(id)
+  }
+
+  /** Two short rising notes, so a device can be identified without adding a sound first. */
+  testTone(): void {
+    if (this.ctx.state === 'suspended') void this.ctx.resume()
+    const now = this.ctx.currentTime
+    ;[660, 880].forEach((frequency, i) => {
+      const start = now + i * 0.17
+      const osc = new OscillatorNode(this.ctx, { frequency })
+      const gain = new GainNode(this.ctx, { gain: 0 })
+      gain.gain.setValueAtTime(0, start)
+      gain.gain.linearRampToValueAtTime(0.35, start + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.16)
+      osc.connect(gain).connect(this.master)
+      osc.onended = () => gain.disconnect()
+      osc.start(start)
+      osc.stop(start + 0.17)
+    })
   }
 }
 
@@ -79,25 +125,32 @@ async function listOutputs(): Promise<MediaDeviceInfo[]> {
 }
 
 /** Device ids are salted per origin (dev vs packaged differ), so fall back to the label. */
-export function resolveDevice(ref: DeviceRef, outputs: MediaDeviceInfo[]): MediaDeviceInfo | null {
-  if (!ref) return null
-  return (
-    outputs.find((d) => d.deviceId === ref.deviceId) ??
-    outputs.find((d) => d.label === ref.label) ??
-    null
-  )
+export function resolveRoute(ref: DeviceRef, outputs: MediaDeviceInfo[]): Route {
+  if (!ref) return { kind: 'off' }
+  if (ref.deviceId === SYSTEM_DEFAULT_DEVICE.deviceId) return { kind: 'default' }
+  const device =
+    outputs.find((d) => d.deviceId === ref.deviceId) ?? outputs.find((d) => d.label === ref.label)
+  return device ? { kind: 'device', device } : { kind: 'missing', label: ref.label }
 }
 
 export type OutputName = 'monitor' | 'broadcast'
 
+export type SoundState = 'loading' | 'ready' | 'error'
+
 export class AudioEngine extends EventTarget {
-  readonly monitor = new AudioOutput()
-  readonly broadcast = new AudioOutput()
+  private readonly onEnded = (): void => this.changed()
+  readonly monitor = new AudioOutput(this.onEnded)
+  readonly broadcast = new AudioOutput(this.onEnded)
   readonly errors = new Map<string, string>()
   outputs: MediaDeviceInfo[] = []
+  /** False until the first device enumeration finishes; until then every device looks missing. */
+  outputsReady = false
   private sounds = new Map<string, Sound>()
   private library: Library | null = null
   private readonly loading = new Set<string>()
+  /** File each sound was last loaded from, to notice when a sound is pointed at another file. */
+  private readonly loadedFrom = new Map<string, string>()
+  private readonly playCounts = new Map<string, number>()
 
   constructor() {
     super()
@@ -114,9 +167,14 @@ export class AudioEngine extends EventTarget {
     this.dispatchEvent(new Event('change'))
   }
 
-  /** Resolved device for an output, or null when unset or missing. */
-  resolved(name: OutputName): MediaDeviceInfo | null {
-    return resolveDevice(this.library?.audio[name] ?? null, this.outputs)
+  route(name: OutputName): Route {
+    return resolveRoute(this.library?.audio[name] ?? null, this.outputs)
+  }
+
+  private forget(id: string): void {
+    this.both.forEach((o) => o.unload(id))
+    this.errors.delete(id)
+    this.loadedFrom.delete(id)
   }
 
   async sync(library: Library): Promise<void> {
@@ -125,43 +183,50 @@ export class AudioEngine extends EventTarget {
     this.monitor.master.gain.value = library.audio.monitorVolume
     this.broadcast.master.gain.value = library.audio.broadcastVolume
 
-    for (const output of this.both) {
-      for (const id of [...output.buffers.keys()]) {
-        if (!this.sounds.has(id)) {
-          output.stop(id)
-          output.buffers.delete(id)
-        }
-      }
+    for (const [id, filePath] of [...this.loadedFrom]) {
+      const sound = this.sounds.get(id)
+      // A load still in flight cleans up after itself once it settles.
+      if (this.loading.has(id)) continue
+      if (!sound || sound.filePath !== filePath) this.forget(id)
     }
-    for (const id of [...this.errors.keys()]) if (!this.sounds.has(id)) this.errors.delete(id)
+    for (const id of [...this.playCounts.keys()]) {
+      if (!this.sounds.has(id)) this.playCounts.delete(id)
+    }
 
-    const pending = library.sounds.filter(
-      (s) => !this.monitor.buffers.has(s.id) && !this.errors.has(s.id) && !this.loading.has(s.id)
-    )
+    const pending = library.sounds.filter((s) => !this.loadedFrom.has(s.id))
     this.changed()
-    await Promise.all([this.applyDevices(), ...pending.map((s) => this.loadSound(s.id))])
+    await Promise.all([this.applyDevices(), ...pending.map((s) => this.loadSound(s))])
   }
 
-  private async loadSound(id: string): Promise<void> {
+  private async loadSound({ id, filePath }: Sound): Promise<void> {
     this.loading.add(id)
+    this.loadedFrom.set(id, filePath)
+    let error: string | null = null
     try {
       const bytes = await window.fawtboard.readSound(id)
-      await Promise.all(this.both.map((o) => o.load(id, bytes)))
-      if (!this.sounds.has(id)) this.both.forEach((o) => o.buffers.delete(id))
+      // Chromium only says "Unable to decode audio data", which tells a user nothing.
+      await Promise.all(this.both.map((o) => o.load(id, bytes))).catch(() => {
+        throw new Error('This file is damaged or isn’t in an audio format fawtboard can play.')
+      })
     } catch (err) {
-      this.both.forEach((o) => o.buffers.delete(id))
-      if (this.sounds.has(id)) {
-        const message = err instanceof Error ? err.message : String(err)
-        // ipcRenderer.invoke wraps main-process errors; keep only the original message.
-        this.errors.set(
-          id,
-          message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
-        )
-      }
-    } finally {
-      this.loading.delete(id)
-      this.changed()
+      const message = err instanceof Error ? err.message : String(err)
+      // ipcRenderer.invoke wraps main-process errors; keep only the original message.
+      error = message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
     }
+    this.loading.delete(id)
+
+    const current = this.sounds.get(id)
+    if (!current) {
+      this.forget(id)
+    } else if (current.filePath !== filePath) {
+      // Relinked while loading: what was decoded belongs to the old file.
+      this.forget(id)
+      void this.loadSound(current)
+    } else if (error !== null) {
+      this.both.forEach((o) => o.unload(id))
+      this.errors.set(id, error)
+    }
+    this.changed()
   }
 
   private async applyDevices(): Promise<void> {
@@ -171,14 +236,12 @@ export class AudioEngine extends EventTarget {
       console.error('Failed to enumerate audio outputs:', err)
       this.outputs = []
     }
-    const targets: [AudioOutput, OutputName][] = [
-      [this.monitor, 'monitor'],
-      [this.broadcast, 'broadcast']
-    ]
+    this.outputsReady = true
+    const names: OutputName[] = ['monitor', 'broadcast']
     await Promise.all(
-      targets.map(async ([output, name]) => {
+      names.map(async (name) => {
         try {
-          await output.setDevice(this.resolved(name)?.deviceId ?? null)
+          await this[name].setRoute(this.route(name))
         } catch (err) {
           console.error(`Failed to route ${name} output:`, err)
         }
@@ -187,13 +250,42 @@ export class AudioEngine extends EventTarget {
     this.changed()
   }
 
+  state(id: string): SoundState {
+    if (this.errors.has(id)) return 'error'
+    return this.monitor.buffers.has(id) ? 'ready' : 'loading'
+  }
+
+  /** Length in seconds, once the sound has been decoded. */
+  duration(id: string): number | undefined {
+    return this.monitor.buffers.get(id)?.duration
+  }
+
+  /** Retries a sound that failed to load, e.g. after its drive was reconnected. */
+  reload(id: string): void {
+    const sound = this.sounds.get(id)
+    if (!sound || this.loading.has(id)) return
+    this.forget(id)
+    void this.loadSound(sound)
+    this.changed()
+  }
+
   isPlaying(id: string): boolean {
     return this.both.some((o) => o.isPlaying(id))
   }
 
+  /** How many times a sound has been started; changes on every (re)start, so it can key animations. */
+  playCount(id: string): number {
+    return this.playCounts.get(id) ?? 0
+  }
+
+  /** Number of distinct sounds currently audible. */
+  get playingCount(): number {
+    return this.monitor.playingCount
+  }
+
   play(id: string): void {
     const sound = this.sounds.get(id)
-    if (!sound || this.errors.has(id)) return
+    if (!sound || this.state(id) !== 'ready') return
     switch (sound.mode) {
       case 'restart':
         this.both.forEach((o) => o.stop(id))
@@ -209,9 +301,19 @@ export class AudioEngine extends EventTarget {
     }
     // Back to back: drift between the two devices is irrelevant (one is you, one is Discord).
     this.both.forEach((o) => o.start(id, sound.volume))
+    this.playCounts.set(id, this.playCount(id) + 1)
+    this.changed()
+  }
+
+  stop(id: string): void {
+    this.both.forEach((o) => o.stop(id))
   }
 
   stopAll(): void {
     this.both.forEach((o) => o.stopAll())
+  }
+
+  testTone(name: OutputName): void {
+    this[name].testTone()
   }
 }

@@ -1,34 +1,42 @@
-# desktop
+# fawtboard desktop
 
-An Electron application with React and TypeScript
+A lightweight soundboard. Every sound plays to two outputs at once: one you hear, and one that feeds a virtual cable so other people hear it in Discord, OBS and similar apps.
 
-## Recommended IDE Setup
+![fawtboard with a board of colored sound pads, two of them playing](../../docs/screenshot.png)
 
-- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+## Using it
 
-## Project Setup
+- **Add sounds**: drop audio files anywhere in the window, or use **Add sounds**. MP3, WAV, FLAC, OGG and M4A are supported. Files are used in place, not copied. The file picker reopens in the folder you last added sounds from.
+- **Play**: click a pad. A playing pad shows its progress and a stop button.
+- **Edit**: right-click a pad, or use its **⋯** button, to change its name, color, volume, play mode or file.
+- **Reorder**: drag a pad, or focus it and press Alt+Left / Alt+Right.
+- **Outputs**: pick a device for **You hear** and **Others hear**. **Test** plays a short tone on that output only.
 
-### Install
+Closing the window keeps fawtboard running in the tray so Stream Deck keys keep working. Quit from the tray menu.
+
+| Shortcut         | Action                         |
+| ---------------- | ------------------------------ |
+| `/` or `Ctrl+F`  | Search sounds                  |
+| `Ctrl+O`         | Add sounds                     |
+| `Esc`            | Stop all sounds / clear search |
+| `Alt+←`, `Alt+→` | Move the focused pad           |
+| `Ctrl+Q`         | Quit                           |
+
+On macOS use `⌘` in place of `Ctrl`.
+
+For routing sounds into Discord on Windows, see [docs/windows-audio-setup.md](../../docs/windows-audio-setup.md).
+
+## Development
+
+Run these from the repository root after `npm install`:
 
 ```bash
-$ npm install
+npm run dev -w @fawtboard/desktop        # app with hot reload
+npm run typecheck -w @fawtboard/desktop
+npm run lint -w @fawtboard/desktop
+npm run build:win -w @fawtboard/desktop  # also build:mac, build:linux
 ```
 
-### Development
+The Stream Deck plugin connects on port 39217. To run a development copy beside an installed one, start it with `FAWTBOARD_PORT=39218` so the two don't fight over the port. The plugin always uses 39217.
 
-```bash
-$ npm run dev
-```
-
-### Build
-
-```bash
-# For windows
-$ npm run build:win
-
-# For macOS
-$ npm run build:mac
-
-# For Linux
-$ npm run build:linux
-```
+App icons are generated from `build/icon.svg` by `scripts/generate-icons.sh`.

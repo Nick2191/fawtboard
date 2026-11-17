@@ -24,6 +24,7 @@
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
     "@fawtboard/protocol": "*",
+    "lucide-react": "^1.73.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {

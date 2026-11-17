@@ -1,16 +1,24 @@
-import { dialog, type BrowserWindow } from 'electron'
 import { WebSocket, WebSocketServer } from 'ws'
 import type { AppToPlugin, PluginToApp, SoundSummary } from '@fawtboard/protocol'
-import type { Library } from '../shared/types'
+import type { Library, StreamDeckStatus } from '../shared/types'
 import type { LibraryStore } from './library'
 
-const FAWTBOARD_PORT = 39217
+// The Stream Deck plugin dials this port. FAWTBOARD_PORT lets a development copy run beside an
+// installed one; the plugin itself always uses the default.
+const FAWTBOARD_PORT = Number(process.env['FAWTBOARD_PORT']) || 39217
 
 function summarize(library: Library): SoundSummary[] {
   return library.sounds.map(({ id, name }) => ({ id, name }))
 }
 
-export function startWsServer(store: LibraryStore, win: BrowserWindow): WebSocketServer {
+type Handlers = {
+  onPlay(soundId: string): void
+  onStopAll(): void
+  onStatus(status: StreamDeckStatus): void
+}
+
+/** Starts the plugin-facing server and returns a getter for its current status. */
+export function startWsServer(store: LibraryStore, handlers: Handlers): () => StreamDeckStatus {
   // Browsers always send an Origin header; the Stream Deck plugin (Node) does not.
   // Rejecting any Origin keeps web pages from triggering sounds.
   const wss = new WebSocketServer({
@@ -19,18 +27,30 @@ export function startWsServer(store: LibraryStore, win: BrowserWindow): WebSocke
     verifyClient: (info) => !info.origin
   })
 
+  let state: StreamDeckStatus['state'] = 'starting'
+  const status = (): StreamDeckStatus => ({
+    state,
+    clients: wss.clients.size,
+    port: FAWTBOARD_PORT
+  })
+  const report = (): void => handlers.onStatus(status())
+
+  wss.on('listening', () => {
+    state = 'listening'
+    report()
+  })
+
   wss.on('error', (err: NodeJS.ErrnoException) => {
+    console.error('WebSocket server error:', err)
     if (err.code === 'EADDRINUSE') {
-      dialog.showErrorBox(
-        'fawtboard',
-        `Port ${FAWTBOARD_PORT} is in use; Stream Deck control is disabled.`
-      )
-    } else {
-      console.error('WebSocket server error:', err)
+      state = 'unavailable'
+      report()
     }
   })
 
   wss.on('connection', (ws) => {
+    report()
+    ws.on('close', report)
     ws.on('message', (data) => {
       let msg: PluginToApp
       try {
@@ -49,10 +69,10 @@ export function startWsServer(store: LibraryStore, win: BrowserWindow): WebSocke
           break
         }
         case 'play':
-          if (typeof msg.soundId === 'string') win.webContents.send('engine:play', msg.soundId)
+          if (typeof msg.soundId === 'string') handlers.onPlay(msg.soundId)
           break
         case 'stopAll':
-          win.webContents.send('engine:stopAll')
+          handlers.onStopAll()
           break
       }
     })
@@ -66,5 +86,5 @@ export function startWsServer(store: LibraryStore, win: BrowserWindow): WebSocke
     }
   })
 
-  return wss
+  return status
 }
