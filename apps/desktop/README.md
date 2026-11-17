@@ -31,7 +31,7 @@ Closing the window keeps fawtboard running in the tray so Stream Deck keys keep 
 
 On macOS use `⌘` in place of `Ctrl`.
 
-For routing sounds into Discord on Windows, see [docs/windows-audio-setup.md](../../docs/windows-audio-setup.md).
+To install on a new Windows machine, see [docs/new-machine-setup.md](../../docs/new-machine-setup.md). For routing sounds into Discord, see [docs/windows-audio-setup.md](../../docs/windows-audio-setup.md).
 
 ## Development
 
