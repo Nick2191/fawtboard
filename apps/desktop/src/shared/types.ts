@@ -24,11 +24,24 @@ export type AudioConfig = {
   broadcastVolume: number
 }
 
+export const THEMES = ['system', 'light', 'dark'] as const
+
+export type Theme = (typeof THEMES)[number]
+
+export type Settings = {
+  theme: Theme
+  /** Accent key (see renderer `lib/accents`). */
+  accent: string
+  /** Folder the Add sounds picker opens in; null reopens wherever sounds were last added from. */
+  addFolder: string | null
+}
+
 export type Library = {
   version: 1
   sounds: Sound[]
   audio: AudioConfig
-  /** Folder sounds were last added from; the file picker reopens there. */
+  settings: Settings
+  /** Folder sounds were last added from. */
   importDir?: string
 }
 

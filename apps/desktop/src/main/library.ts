@@ -5,9 +5,11 @@ import path from 'path'
 import {
   AUDIO_EXTENSIONS,
   SYSTEM_DEFAULT_DEVICE,
+  THEMES,
   type AddResult,
   type AudioConfig,
   type Library,
+  type Settings,
   type Sound,
   type SoundPatch
 } from '../shared/types'
@@ -22,7 +24,8 @@ function defaultLibrary(): Library {
       broadcast: null,
       monitorVolume: 1,
       broadcastVolume: 1
-    }
+    },
+    settings: { theme: 'dark', accent: 'violet', addFolder: null }
   }
 }
 
@@ -31,10 +34,14 @@ function loadLibrary(file: string): Library {
   try {
     const parsed = JSON.parse(readFileSync(file, 'utf8')) as Library
     const defaults = defaultLibrary()
+    const settings = { ...defaults.settings, ...parsed.settings }
+    // nativeTheme throws on anything else, and the file can be edited by hand.
+    if (!THEMES.includes(settings.theme)) settings.theme = defaults.settings.theme
     return {
       version: 1,
       sounds: Array.isArray(parsed.sounds) ? parsed.sounds : [],
       audio: { ...defaults.audio, ...parsed.audio },
+      settings,
       ...(typeof parsed.importDir === 'string' ? { importDir: parsed.importDir } : {})
     }
   } catch (err) {
@@ -121,6 +128,10 @@ export class LibraryStore extends EventEmitter<{ changed: [Library] }> {
 
   setAudio(patch: Partial<AudioConfig>): void {
     this.commit({ ...this.library, audio: { ...this.library.audio, ...patch } })
+  }
+
+  setSettings(patch: Partial<Settings>): void {
+    this.commit({ ...this.library, settings: { ...this.library.settings, ...patch } })
   }
 
   private patchSound(id: string, patch: Partial<Sound>): void {

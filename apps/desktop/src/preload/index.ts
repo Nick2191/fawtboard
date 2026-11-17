@@ -3,6 +3,7 @@ import type {
   AddResult,
   AudioConfig,
   Library,
+  Settings,
   Sound,
   SoundPatch,
   StreamDeckStatus
@@ -34,6 +35,9 @@ const fawtboard = {
   reorderSounds: (ids: string[]): Promise<void> => ipcRenderer.invoke('library:reorder', ids),
   setAudio: (patch: Partial<AudioConfig>): Promise<void> =>
     ipcRenderer.invoke('library:setAudio', patch),
+  setSettings: (patch: Partial<Settings>): Promise<void> =>
+    ipcRenderer.invoke('settings:set', patch),
+  chooseAddFolder: (): Promise<boolean> => ipcRenderer.invoke('settings:chooseAddFolder'),
   readSound: (id: string): Promise<ArrayBuffer> => ipcRenderer.invoke('sound:read', id),
   revealSound: (id: string): Promise<void> => ipcRenderer.invoke('sound:reveal', id),
   getStreamDeckStatus: (): Promise<StreamDeckStatus> => ipcRenderer.invoke('streamDeck:status'),

@@ -20,10 +20,18 @@ import { startWsServer } from './ws-server'
 import {
   AUDIO_EXTENSIONS,
   type AudioConfig,
+  type Settings,
   type Sound,
   type SoundPatch,
   type StreamDeckStatus
 } from '../shared/types'
+
+const AUDIO_FILTERS = [{ name: 'Audio', extensions: AUDIO_EXTENSIONS }]
+
+/** The renderer's --bg in each theme, so the window never flashes the wrong colour while loading. */
+function windowBackground(): string {
+  return nativeTheme.shouldUseDarkColors ? '#0f1014' : '#f4f5f7'
+}
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -73,8 +81,7 @@ function createWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     title: 'fawtboard',
-    // Matches the renderer's --bg so the window never flashes white while loading.
-    backgroundColor: '#0f1014',
+    backgroundColor: windowBackground(),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -135,21 +142,20 @@ function createTray(): void {
 function showOpenDialog(
   options: Electron.OpenDialogOptions
 ): Promise<Electron.OpenDialogReturnValue> {
-  const filtered: Electron.OpenDialogOptions = {
-    ...options,
-    filters: [{ name: 'Audio', extensions: AUDIO_EXTENSIONS }]
-  }
-  return mainWindow ? dialog.showOpenDialog(mainWindow, filtered) : dialog.showOpenDialog(filtered)
+  return mainWindow ? dialog.showOpenDialog(mainWindow, options) : dialog.showOpenDialog(options)
 }
 
 function registerIpc(store: LibraryStore, streamDeckStatus: () => StreamDeckStatus): void {
   ipcMain.handle('library:get', () => store.get())
   ipcMain.handle('library:addFiles', async () => {
-    const { importDir } = store.get()
+    const { importDir, settings } = store.get()
+    // A folder that is gone (deleted, drive unplugged) is skipped; with none left the dialog
+    // picks its own starting point.
+    const defaultPath = [settings.addFolder, importDir].find((dir) => dir && existsSync(dir))
     const result = await showOpenDialog({
       properties: ['openFile', 'multiSelections'],
-      // Skipped when the folder is gone (deleted, drive unplugged): the dialog then picks its own.
-      ...(importDir && existsSync(importDir) ? { defaultPath: importDir } : {})
+      filters: AUDIO_FILTERS,
+      ...(defaultPath ? { defaultPath } : {})
     })
     return store.addFiles(result.canceled ? [] : result.filePaths)
   })
@@ -158,7 +164,7 @@ function registerIpc(store: LibraryStore, streamDeckStatus: () => StreamDeckStat
     store.updateSound(id, patch)
   )
   ipcMain.handle('library:relinkSound', async (_e, id: string) => {
-    const result = await showOpenDialog({ properties: ['openFile'] })
+    const result = await showOpenDialog({ properties: ['openFile'], filters: AUDIO_FILTERS })
     if (result.canceled || result.filePaths.length === 0) return false
     store.relinkSound(id, result.filePaths[0])
     return true
@@ -169,6 +175,18 @@ function registerIpc(store: LibraryStore, streamDeckStatus: () => StreamDeckStat
   )
   ipcMain.handle('library:reorder', (_e, ids: string[]) => store.reorder(ids))
   ipcMain.handle('library:setAudio', (_e, patch: Partial<AudioConfig>) => store.setAudio(patch))
+  ipcMain.handle('settings:set', (_e, patch: Partial<Settings>) => store.setSettings(patch))
+  ipcMain.handle('settings:chooseAddFolder', async () => {
+    const current = store.get().settings.addFolder
+    const result = await showOpenDialog({
+      title: 'Folder to open when adding sounds',
+      properties: ['openDirectory'],
+      ...(current && existsSync(current) ? { defaultPath: current } : {})
+    })
+    if (result.canceled || result.filePaths.length === 0) return false
+    store.setSettings({ addFolder: result.filePaths[0] })
+    return true
+  })
   ipcMain.handle('sound:read', async (_e, id: string) => {
     const sound = store.findSound(id)
     if (!sound) throw new Error(`Sound file not found: <unknown sound ${id}>`)
@@ -197,8 +215,6 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     electronApp.setAppUserModelId('com.nick2191.fawtboard')
-    // The UI is dark only; this keeps the native title bar, menus and dialogs in step with it.
-    nativeTheme.themeSource = 'dark'
     Menu.setApplicationMenu(createMenu())
 
     app.on('browser-window-created', (_, window) => {
@@ -214,9 +230,17 @@ if (!app.requestSingleInstanceLock()) {
     )
 
     const store = new LibraryStore(join(app.getPath('userData'), 'library.json'))
+    // Also drives the renderer's prefers-color-scheme, the title bar and native dialogs.
+    nativeTheme.themeSource = store.get().settings.theme
     const win = createWindow()
     mainWindow = win
-    store.on('changed', (library) => win.webContents.send('library:changed', library))
+    nativeTheme.on('updated', () => win.setBackgroundColor(windowBackground()))
+    store.on('changed', (library) => {
+      if (nativeTheme.themeSource !== library.settings.theme) {
+        nativeTheme.themeSource = library.settings.theme
+      }
+      win.webContents.send('library:changed', library)
+    })
     const streamDeckStatus = startWsServer(store, {
       onPlay: (soundId) => win.webContents.send('engine:play', soundId),
       onStopAll: () => win.webContents.send('engine:stopAll'),

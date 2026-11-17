@@ -2,6 +2,7 @@ import type {
   AddResult,
   AudioConfig,
   Library,
+  Settings,
   Sound,
   SoundPatch,
   StreamDeckStatus
@@ -19,6 +20,9 @@ export interface FawtboardApi {
   restoreSound(sound: Sound, index: number): Promise<void>
   reorderSounds(ids: string[]): Promise<void>
   setAudio(patch: Partial<AudioConfig>): Promise<void>
+  setSettings(patch: Partial<Settings>): Promise<void>
+  /** Opens a folder picker for the Add sounds folder; resolves false when cancelled. */
+  chooseAddFolder(): Promise<boolean>
   readSound(id: string): Promise<ArrayBuffer>
   revealSound(id: string): Promise<void>
   getStreamDeckStatus(): Promise<StreamDeckStatus>

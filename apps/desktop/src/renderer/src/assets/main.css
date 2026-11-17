@@ -1,5 +1,7 @@
 /* ---------- Tokens ---------- */
 
+/* Dark is the base. The main process sets nativeTheme from the Appearance setting, which is
+   what prefers-color-scheme reports here, so "System" needs no code on this side. */
 :root {
   color-scheme: dark;
 
@@ -7,6 +9,8 @@
   --surface: #16181f;
   --surface-2: #1e2129;
   --surface-3: #292d38;
+  /* Things that float above the page: toasts. */
+  --raised: #292d38;
   --inset: #0b0c10;
   --border: #252933;
   --border-strong: #3a3f4d;
@@ -15,19 +19,61 @@
   --text-dim: #a3a8b8;
   --text-faint: #6f7587;
 
-  /* --accent is for text, outlines and fills on dark; --accent-bg sits under white text. */
-  --accent: #a394ff;
-  --accent-bg: #6a5af2;
-  --accent-bg-hover: #7b6cf6;
+  /* A wash for hover states on transparent controls. */
+  --overlay: rgb(255 255 255 / 0.07);
+  --scrim: rgb(8 8 12 / 0.62);
+  --scrim-strong: rgb(10 10 14 / 0.72);
+  --shadow: rgb(0 0 0 / 0.7);
+
+  /* The accent setting only changes this hue; every accent shade is derived from it.
+     --accent is for text, outlines and fills; --accent-bg sits under white text. */
+  --accent-h: 283;
+  --accent: oklch(0.76 0.13 var(--accent-h));
+  --accent-bg: oklch(0.55 0.2 var(--accent-h));
+  --accent-bg-hover: oklch(0.6 0.2 var(--accent-h));
   --danger: #ff6b6b;
   --warning: #f5b84d;
   --success: #4cd98a;
+
+  /* How much of its own colour a pad's small print keeps; the rest is --text. */
+  --pad-ink: 78%;
 
   --radius-s: 6px;
   --radius-m: 9px;
   --radius-l: 14px;
   --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --surface-2: #f2f3f6;
+    --surface-3: #e5e7ec;
+    --raised: #ffffff;
+    --inset: #ffffff;
+    --border: #e0e2e8;
+    --border-strong: #cbced7;
+
+    --text: #1a1c23;
+    --text-dim: #565c6c;
+    --text-faint: #868c9c;
+
+    --overlay: rgb(0 0 0 / 0.06);
+    --scrim: rgb(30 32 44 / 0.35);
+    --scrim-strong: rgb(244 245 247 / 0.84);
+    --shadow: rgb(30 34 50 / 0.24);
+
+    --accent: oklch(0.5 0.2 var(--accent-h));
+    --danger: #d43c3c;
+    --warning: #9a5b00;
+    --success: #1c9a55;
+
+    --pad-ink: 42%;
+  }
 }
 
 /* ---------- Base ---------- */
@@ -99,8 +145,8 @@ kbd {
   padding: 0 5px;
   border-radius: 4px;
   color: var(--text-faint);
-  background: rgb(255 255 255 / 0.06);
-  border: 1px solid rgb(255 255 255 / 0.08);
+  background: var(--overlay);
+  border: 1px solid var(--overlay);
 }
 
 ::-webkit-scrollbar {
@@ -208,7 +254,7 @@ kbd {
 
 .icon-btn:hover {
   color: var(--text);
-  background: rgb(255 255 255 / 0.08);
+  background: var(--overlay);
 }
 
 .input,
@@ -239,7 +285,7 @@ kbd {
   padding-right: 32px;
   text-overflow: ellipsis;
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a3a8b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a90a0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
 }
@@ -300,7 +346,9 @@ kbd {
   margin-top: -5px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.12),
+    0 1px 3px rgb(0 0 0 / 0.4);
   transition: transform 120ms var(--ease);
 }
 
@@ -388,13 +436,16 @@ kbd {
   gap: 8px;
 }
 
-/* ---------- Outputs ---------- */
+.btn-icon {
+  width: 34px;
+  padding: 0;
+}
+
+/* ---------- Outputs (Settings → Audio) ---------- */
 
 .outputs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  padding: 12px 16px 0;
 }
 
 .output {
@@ -403,7 +454,7 @@ kbd {
   gap: 9px;
   min-width: 0;
   padding: 11px 12px 12px;
-  background: var(--surface);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-l);
 }
@@ -431,7 +482,7 @@ kbd {
 
 .output[data-audible='false'] .output-icon {
   color: var(--text-faint);
-  background: var(--surface-2);
+  background: var(--surface-3);
 }
 
 .output-title {
@@ -479,6 +530,10 @@ kbd {
   background: color-mix(in srgb, var(--warning) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
   border-radius: var(--radius-m);
+}
+
+.notice .btn {
+  margin-left: auto;
 }
 
 .notice svg {
@@ -604,7 +659,7 @@ kbd {
   gap: 6px;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  color: color-mix(in srgb, var(--pad) 78%, var(--text));
+  color: color-mix(in srgb, var(--pad) var(--pad-ink), var(--text));
 }
 
 .pad-meta svg {
@@ -802,6 +857,58 @@ kbd {
   text-overflow: ellipsis;
 }
 
+.statusbar-end {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* Where each output is going, now that the pickers live in Settings. */
+.status-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 22px;
+  padding: 0 7px;
+  color: inherit;
+  background: none;
+  border: none;
+  border-radius: var(--radius-s);
+}
+
+.status-btn:hover {
+  color: var(--text);
+  background: var(--overlay);
+}
+
+.status-out {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.status-out + .status-out {
+  margin-left: 7px;
+}
+
+/* A chosen device that isn't connected. */
+.status-out[data-warning='true'] {
+  color: var(--warning);
+}
+
+.status-out svg {
+  flex: none;
+}
+
+.status-out span {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .status {
   display: flex;
   align-items: center;
@@ -844,7 +951,7 @@ kbd {
   place-items: center;
   padding: 16px;
   pointer-events: none;
-  background: rgb(10 10 14 / 0.72);
+  background: var(--scrim-strong);
   backdrop-filter: blur(3px);
   animation: fade-in 120ms;
 }
@@ -882,10 +989,9 @@ kbd {
   }
 }
 
-/* ---------- Sound editor ---------- */
+/* ---------- Dialogs ---------- */
 
-.editor {
-  width: 440px;
+.modal {
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 32px);
   margin: auto;
@@ -895,14 +1001,20 @@ kbd {
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 16px;
-  box-shadow: 0 24px 64px -12px rgb(0 0 0 / 0.7);
+  box-shadow: 0 24px 64px -12px var(--shadow);
   animation: editor-in 180ms var(--ease);
 }
 
-.editor::backdrop {
-  background: rgb(8 8 12 / 0.62);
+.modal::backdrop {
+  background: var(--scrim);
   backdrop-filter: blur(2px);
   animation: fade-in 180ms;
+}
+
+/* ---------- Sound editor ---------- */
+
+.editor {
+  width: 440px;
 }
 
 @keyframes editor-in {
@@ -1038,7 +1150,7 @@ kbd {
 .segment:has(input:checked) {
   color: var(--text);
   background: var(--surface-3);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  box-shadow: 0 1px 2px var(--shadow);
 }
 
 .segment:has(input:focus-visible) {
@@ -1121,10 +1233,10 @@ kbd {
   max-width: 100%;
   padding: 7px 8px 7px 14px;
   font-size: 13px;
-  background: var(--surface-3);
+  background: var(--raised);
   border: 1px solid var(--border-strong);
   border-radius: 11px;
-  box-shadow: 0 10px 30px -8px rgb(0 0 0 / 0.7);
+  box-shadow: 0 10px 30px -8px var(--shadow);
   pointer-events: auto;
   animation: toast-in 200ms var(--ease);
 }
@@ -1163,25 +1275,183 @@ kbd {
   }
 }
 
+/* ---------- Settings ---------- */
+
+.settings {
+  width: 700px;
+  height: 480px;
+  /* Only the open section scrolls; the section list stays put. */
+  overflow: hidden;
+}
+
+.settings-body {
+  display: grid;
+  grid-template-columns: 184px minmax(0, 1fr);
+  height: 100%;
+}
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 10px;
+  background: var(--surface-2);
+  border-right: 1px solid var(--border);
+}
+
+.settings-nav h2 {
+  padding: 0 8px 12px;
+}
+
+.settings-tab {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  height: 34px;
+  padding: 0 10px;
+  font-weight: 500;
+  color: var(--text-dim);
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--radius-m);
+  transition:
+    background 120ms,
+    color 120ms;
+}
+
+.settings-tab:hover {
+  color: var(--text);
+  background: var(--overlay);
+}
+
+.settings-tab[aria-selected='true'] {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.settings-tab[aria-selected='true'] svg {
+  color: var(--accent);
+}
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 14px 0 20px;
+}
+
+.settings-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  padding: 12px 20px 20px;
+  overflow-y: auto;
+}
+
+.settings-lede {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-m);
+  cursor: pointer;
+  transition:
+    background 120ms,
+    border-color 120ms;
+}
+
+.choice:has(input:checked) {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border-color: var(--accent);
+}
+
+.choice input {
+  flex: none;
+  margin-top: 3px;
+  accent-color: var(--accent-bg);
+}
+
+.choice-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.choice-title {
+  font-weight: 500;
+}
+
+.choice-detail {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  overflow-wrap: anywhere;
+}
+
 /* ---------- Narrow windows ---------- */
 
 @media (max-width: 700px) {
   .brand span,
   .btn-stop kbd,
-  .output-hint {
+  .output-hint,
+  .status span {
     display: none;
   }
 
   .output-title {
     flex: 1;
   }
+
+  /* The section list becomes a row of tabs across the top. */
+  .settings-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    padding: 10px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .settings-nav h2 {
+    display: none;
+  }
 }
 
-/* Two narrow cards waste less height than two stacked wide ones. */
-@media (max-width: 640px) {
+@media (max-width: 560px) {
   .output-controls {
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
+  }
+
+  .status-out span {
+    max-width: 90px;
   }
 }
 

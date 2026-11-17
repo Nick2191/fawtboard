@@ -6,6 +6,7 @@ import {
   RadioTower,
   Search,
   SearchX,
+  Settings as SettingsIcon,
   Square,
   TriangleAlert,
   Upload,
@@ -13,11 +14,12 @@ import {
 } from 'lucide-react'
 import { AudioEngine, type OutputName } from './audio/engine'
 import Logo from './components/Logo'
-import OutputPanel from './components/OutputPanel'
+import SettingsDialog, { type SettingsTab } from './components/SettingsDialog'
 import SoundEditor from './components/SoundEditor'
 import SoundPad from './components/SoundPad'
 import Toasts from './components/Toasts'
 import { useToasts } from './hooks/useToasts'
+import { accentHue } from './lib/accents'
 import {
   AUDIO_EXTENSIONS,
   type AddResult,
@@ -39,6 +41,8 @@ function App(): React.JSX.Element {
   const [, rerender] = useReducer((n: number) => n + 1, 0)
   const [query, setQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
+  /** The open Settings section, or null while Settings is closed. */
+  const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null)
   /** Ids added a moment ago: scrolled into view and flashed so they're easy to find. */
   const [recent, setRecent] = useState<string[]>([])
   const [fileDrag, setFileDrag] = useState(false)
@@ -135,8 +139,8 @@ function App(): React.JSX.Element {
   }, [])
 
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
-    // The editor is modal and handles its own keys.
-    if (editingId) return
+    // The editor and Settings are modal and handle their own keys.
+    if (editingId || settingsTab) return
     const typing = e.target instanceof HTMLInputElement && e.target.type !== 'range'
     const mod = e.ctrlKey || e.metaKey
     const key = e.key.toLowerCase()
@@ -147,6 +151,9 @@ function App(): React.JSX.Element {
     } else if (mod && key === 'o') {
       e.preventDefault()
       void addFromPicker()
+    } else if (mod && key === ',') {
+      e.preventDefault()
+      setSettingsTab('audio')
     } else if (key === 'escape' && !typing) {
       engine.stopAll()
     }
@@ -166,6 +173,12 @@ function App(): React.JSX.Element {
       ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [lastRecent])
 
+  const accent = library?.settings.accent
+  useEffect(() => {
+    if (accent === undefined) return
+    document.documentElement.style.setProperty('--accent-h', String(accentHue(accent)))
+  }, [accent])
+
   if (!library) return <div className="app" />
   const { audio, sounds } = library
 
@@ -176,12 +189,8 @@ function App(): React.JSX.Element {
   const visible = needle ? ordered.filter((s) => s.name.toLowerCase().includes(needle)) : ordered
   const editing = sounds.find((s) => s.id === editingId)
   const playingCount = engine.playingCount
-  const silent =
-    engine.outputsReady &&
-    OUTPUT_NAMES.every((name) => {
-      const { kind } = engine.route(name)
-      return kind === 'off' || kind === 'missing'
-    })
+  const routes = OUTPUT_NAMES.map((name) => engine.route(name).kind)
+  const silent = engine.outputsReady && routes.every((kind) => kind === 'off' || kind === 'missing')
 
   /** Shows the new order at once; the library echo that follows confirms it. */
   const commitOrder = (ids: string[]): void => {
@@ -273,36 +282,24 @@ function App(): React.JSX.Element {
             <Plus size={16} aria-hidden />
             Add sounds
           </button>
+          <button
+            className="btn btn-icon"
+            aria-label="Settings"
+            title="Settings (Ctrl/⌘+,)"
+            onClick={() => setSettingsTab('audio')}
+          >
+            <SettingsIcon size={17} aria-hidden />
+          </button>
         </div>
       </header>
-
-      <section className="outputs" aria-label="Outputs">
-        <OutputPanel
-          engine={engine}
-          name="monitor"
-          title="You hear"
-          hint="Your headphones or speakers"
-          icon={Headphones}
-          volume={audio.monitorVolume}
-          onDevice={(monitor) => void api.setAudio({ monitor })}
-          onVolume={(monitorVolume) => void api.setAudio({ monitorVolume })}
-        />
-        <OutputPanel
-          engine={engine}
-          name="broadcast"
-          title="Others hear"
-          hint="A virtual cable into Discord, OBS…"
-          icon={RadioTower}
-          volume={audio.broadcastVolume}
-          onDevice={(broadcast) => void api.setAudio({ broadcast })}
-          onVolume={(broadcastVolume) => void api.setAudio({ broadcastVolume })}
-        />
-      </section>
 
       {silent && (
         <p className="notice" role="status">
           <TriangleAlert size={15} aria-hidden />
-          Sounds are silent right now: neither output has a connected device. Pick one above.
+          Sounds are silent right now: neither output has a connected device.
+          <button className="btn btn-small" onClick={() => setSettingsTab('audio')}>
+            Audio settings
+          </button>
         </p>
       )}
 
@@ -376,20 +373,47 @@ function App(): React.JSX.Element {
           {needle && ` · ${visible.length} shown`}
           {playingCount > 0 && ` · ${playingCount} playing`}
         </span>
-        {streamDeck?.state === 'unavailable' ? (
-          <span
-            className="status status-warning"
-            title={`Another program is using port ${streamDeck.port}. Quit it and restart fawtboard.`}
+        <div className="statusbar-end">
+          <button
+            className="status-btn"
+            aria-label="Audio settings"
+            title="Where sounds are going: what you hear, then what others hear. Click to change."
+            onClick={() => setSettingsTab('audio')}
           >
-            <i />
-            Stream Deck control is off: port {streamDeck.port} is in use
-          </span>
-        ) : streamDeck?.state === 'listening' ? (
-          <span className={streamDeck.clients > 0 ? 'status status-ok' : 'status'}>
-            <i />
-            {streamDeck.clients > 0 ? 'Stream Deck connected' : 'Stream Deck not connected'}
-          </span>
-        ) : null}
+            {OUTPUT_NAMES.map((name, i) => {
+              const Icon = name === 'monitor' ? Headphones : RadioTower
+              return (
+                <span
+                  key={name}
+                  className="status-out"
+                  data-warning={engine.outputsReady && routes[i] === 'missing'}
+                >
+                  <Icon size={13} aria-hidden />
+                  <span>{audio[name]?.label ?? 'Off'}</span>
+                </span>
+              )
+            })}
+          </button>
+          {streamDeck?.state === 'unavailable' ? (
+            <div
+              className="status status-warning"
+              title={`Stream Deck control is off: another program is using port ${streamDeck.port}. Quit it and restart fawtboard.`}
+            >
+              <i />
+              <span>Stream Deck control is off: port {streamDeck.port} is in use</span>
+            </div>
+          ) : streamDeck?.state === 'listening' ? (
+            <div
+              className={streamDeck.clients > 0 ? 'status status-ok' : 'status'}
+              title={streamDeck.clients > 0 ? 'Stream Deck connected' : 'Stream Deck not connected'}
+            >
+              <i />
+              <span>
+                {streamDeck.clients > 0 ? 'Stream Deck connected' : 'Stream Deck not connected'}
+              </span>
+            </div>
+          ) : null}
+        </div>
       </footer>
 
       {fileDrag && (
@@ -409,6 +433,16 @@ function App(): React.JSX.Element {
           engine={engine}
           onClose={() => setEditingId(null)}
           onRemove={() => remove(editing)}
+        />
+      )}
+
+      {settingsTab && (
+        <SettingsDialog
+          tab={settingsTab}
+          library={library}
+          engine={engine}
+          onTab={setSettingsTab}
+          onClose={() => setSettingsTab(null)}
         />
       )}
 

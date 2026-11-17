@@ -1,9 +1,10 @@
-import { useEffect, useRef, type CSSProperties } from 'react'
+import { useRef, type CSSProperties } from 'react'
 import { FolderOpen, Play, Replace, Square, Trash2, TriangleAlert, X } from 'lucide-react'
 import type { AudioEngine } from '../audio/engine'
 import type { PlayMode, Sound } from '../../../shared/types'
 import { PAD_COLORS, padColor, type PadColor } from '../lib/colors'
 import { PLAY_MODES } from '../lib/modes'
+import Modal from './Modal'
 import Slider from './Slider'
 
 type Props = {
@@ -26,22 +27,13 @@ export default function SoundEditor({
   const playing = engine.isPlaying(sound.id)
   const color = padColor(sound)
 
-  useEffect(() => {
-    // Guarded because StrictMode runs effects twice and showModal() throws on an open dialog.
-    if (!dialog.current?.open) dialog.current?.showModal()
-  }, [])
-
   return (
-    <dialog
-      ref={dialog}
+    <Modal
+      dialogRef={dialog}
       className="editor"
-      aria-labelledby="editor-title"
+      labelledBy="editor-title"
       style={{ '--pad': PAD_COLORS[color] } as CSSProperties}
       onClose={onClose}
-      // mousedown, not click: a text selection that ends on the backdrop must not close the dialog.
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) e.currentTarget.close()
-      }}
     >
       <div className="editor-body">
         <header className="editor-head">
@@ -180,6 +172,6 @@ export default function SoundEditor({
           </button>
         </footer>
       </div>
-    </dialog>
+    </Modal>
   )
 }
