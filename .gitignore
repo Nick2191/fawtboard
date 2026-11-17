@@ -4,3 +4,4 @@ out/
 *.streamDeckPlugin
 apps/streamdeck-plugin/*.sdPlugin/bin/
 apps/streamdeck-plugin/*.sdPlugin/logs/
+test-sounds/
