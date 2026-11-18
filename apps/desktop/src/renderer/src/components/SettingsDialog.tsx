@@ -1,5 +1,6 @@
 import { useRef, type CSSProperties } from 'react'
 import {
+  CircleArrowUp,
   FolderOpen,
   Headphones,
   Monitor,
@@ -12,17 +13,18 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import type { AudioEngine } from '../audio/engine'
-import type { Library, Theme } from '../../../shared/types'
+import type { Library, Theme, UpdateStatus } from '../../../shared/types'
 import { ACCENTS, type Accent } from '../lib/accents'
 import Modal from './Modal'
 import OutputPanel from './OutputPanel'
 
-export type SettingsTab = 'audio' | 'library' | 'appearance'
+export type SettingsTab = 'audio' | 'library' | 'appearance' | 'updates'
 
 const TABS: Record<SettingsTab, { label: string; icon: LucideIcon }> = {
   audio: { label: 'Audio', icon: Volume2 },
   library: { label: 'Library', icon: FolderOpen },
-  appearance: { label: 'Appearance', icon: Palette }
+  appearance: { label: 'Appearance', icon: Palette },
+  updates: { label: 'Updates', icon: CircleArrowUp }
 }
 
 const THEME_OPTIONS: Record<Theme, { label: string; icon: LucideIcon }> = {
@@ -34,6 +36,8 @@ const THEME_OPTIONS: Record<Theme, { label: string; icon: LucideIcon }> = {
 type Props = {
   tab: SettingsTab
   library: Library
+  /** Null until the app has reported it. */
+  update: UpdateStatus | null
   engine: AudioEngine
   onTab(tab: SettingsTab): void
   onClose(): void
@@ -41,7 +45,7 @@ type Props = {
 
 /** Every control applies immediately; there is nothing to save or cancel. */
 export default function SettingsDialog(props: Props): React.JSX.Element {
-  const { tab, library, engine } = props
+  const { tab, library, update, engine } = props
   const { audio, settings, importDir } = library
   const dialog = useRef<HTMLDialogElement>(null)
   const api = window.fawtboard
@@ -221,6 +225,73 @@ export default function SettingsDialog(props: Props): React.JSX.Element {
                   Used for buttons and highlights. Each sound keeps its own color.
                 </p>
               </div>
+            </div>
+          )}
+
+          {tab === 'updates' && update && (
+            <div className="settings-content">
+              <div className="field">
+                <span className="field-label">fawtboard {update.version}</span>
+                <div className="field-row">
+                  <span>
+                    {
+                      {
+                        unsupported: 'Only the installed Windows app updates itself.',
+                        idle: 'Up to date.',
+                        checking: 'Checking for updates…',
+                        downloading: `Downloading ${update.available}…`,
+                        ready: `${update.available} is ready to install.`,
+                        error: 'Couldn’t check for updates.'
+                      }[update.state]
+                    }
+                  </span>
+                  {update.state === 'ready' ? (
+                    <button
+                      className="btn btn-primary btn-small"
+                      onClick={() => void api.installUpdate()}
+                    >
+                      Restart and update
+                    </button>
+                  ) : update.state === 'idle' || update.state === 'error' ? (
+                    <button className="btn btn-small" onClick={() => void api.checkForUpdates()}>
+                      Check now
+                    </button>
+                  ) : null}
+                </div>
+                <p className="field-hint">
+                  fawtboard checks every hour and downloads new versions in the background.
+                </p>
+              </div>
+
+              {update.pluginUpdate && (
+                <div className="field">
+                  <span className="field-label">Stream Deck plugin</span>
+                  <div className="field-row">
+                    <span>{update.pluginUpdate} is ready to install.</span>
+                    <button
+                      className="btn btn-primary btn-small"
+                      onClick={() => void api.installPluginUpdate()}
+                    >
+                      Install in Stream Deck
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <label className="choice">
+                <input
+                  type="checkbox"
+                  checked={settings.autoUpdate}
+                  onChange={(e) => void api.setSettings({ autoUpdate: e.target.checked })}
+                />
+                <span className="choice-text">
+                  <span className="choice-title">Install updates automatically</span>
+                  <span className="choice-detail">
+                    A downloaded update installs when you quit fawtboard, or the next time it
+                    starts. Stream Deck plugin updates open in Stream Deck on their own.
+                  </span>
+                </span>
+              </label>
             </div>
           )}
         </section>

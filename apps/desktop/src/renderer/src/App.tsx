@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from 'react'
 import {
+  CircleArrowUp,
   FileMusic,
   Headphones,
   Plus,
@@ -25,7 +26,8 @@ import {
   type AddResult,
   type Library,
   type Sound,
-  type StreamDeckStatus
+  type StreamDeckStatus,
+  type UpdateStatus
 } from '../../shared/types'
 
 // One engine for the renderer's lifetime; the window is hidden, never destroyed.
@@ -38,6 +40,7 @@ function App(): React.JSX.Element {
   const api = window.fawtboard
   const [library, setLibrary] = useState<Library | null>(null)
   const [streamDeck, setStreamDeck] = useState<StreamDeckStatus | null>(null)
+  const [update, setUpdate] = useState<UpdateStatus | null>(null)
   const [, rerender] = useReducer((n: number) => n + 1, 0)
   const [query, setQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -64,12 +67,16 @@ function App(): React.JSX.Element {
     void api.getStreamDeckStatus().then((status) => {
       if (!disposed) setStreamDeck(status)
     })
+    void api.getUpdateStatus().then((status) => {
+      if (!disposed) setUpdate(status)
+    })
     engine.addEventListener('change', rerender)
     const unsubscribers = [
       api.onLibraryChanged(apply),
       api.onPlay((id) => engine.play(id)),
       api.onStopAll(() => engine.stopAll()),
-      api.onStreamDeckStatus(setStreamDeck)
+      api.onStreamDeckStatus(setStreamDeck),
+      api.onUpdateStatus(setUpdate)
     ]
     return () => {
       disposed = true
@@ -282,6 +289,20 @@ function App(): React.JSX.Element {
             <Plus size={16} aria-hidden />
             Add sounds
           </button>
+          {(update?.state === 'ready' || update?.pluginUpdate) && (
+            <button
+              className="btn btn-icon btn-update"
+              aria-label="Updates"
+              title={
+                update.state === 'ready'
+                  ? `fawtboard ${update.available} is ready to install`
+                  : 'A Stream Deck plugin update is ready to install'
+              }
+              onClick={() => setSettingsTab('updates')}
+            >
+              <CircleArrowUp size={17} aria-hidden />
+            </button>
+          )}
           <button
             className="btn btn-icon"
             aria-label="Settings"
@@ -440,6 +461,7 @@ function App(): React.JSX.Element {
         <SettingsDialog
           tab={settingsTab}
           library={library}
+          update={update}
           engine={engine}
           onTab={setSettingsTab}
           onClose={() => setSettingsTab(null)}

@@ -441,6 +441,11 @@ kbd {
   padding: 0;
 }
 
+.btn-update {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
 /* ---------- Outputs (Settings → Audio) ---------- */
 
 .outputs {

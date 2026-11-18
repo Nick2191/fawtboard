@@ -1,3 +1,8 @@
+/**
+ * The plugin connects to `ws://127.0.0.1:39217/?version=<its manifest Version>`. The app compares
+ * that version with the plugin it bundles and offers an update when the connected one is older.
+ */
+
 export type SoundSummary = {
   id: string;
   name: string;

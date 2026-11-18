@@ -1,3 +1,4 @@
+import streamDeck from "@elgato/streamdeck";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import WebSocket from "ws";
@@ -16,7 +17,9 @@ class AppClient extends EventEmitter<{ soundsChanged: [SoundSummary[]] }> {
 	sounds: SoundSummary[] = [];
 
 	connect(): void {
-		const socket = new WebSocket(`ws://127.0.0.1:${FAWTBOARD_PORT}`);
+		// The app offers to update the plugin when this is older than the one it bundles.
+		const version = encodeURIComponent(streamDeck.info.plugin.version);
+		const socket = new WebSocket(`ws://127.0.0.1:${FAWTBOARD_PORT}/?version=${version}`);
 		this.socket = socket;
 		socket.on("open", () => {
 			this.connected = true;

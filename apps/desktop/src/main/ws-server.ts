@@ -26,6 +26,8 @@ type Handlers = {
   /** A sound's image as a PNG data URL, or null when it has none. */
   readImage(soundId: string): Promise<string | null>
   onStatus(status: StreamDeckStatus): void
+  /** A plugin connected; `version` is null for plugins built before they sent one. */
+  onPluginVersion(version: string | null): void
 }
 
 /** Starts the plugin-facing server and returns a getter for its current status. */
@@ -59,8 +61,10 @@ export function startWsServer(store: LibraryStore, handlers: Handlers): () => St
     }
   })
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
     report()
+    // The plugin dials `/?version=<its manifest Version>`; see @fawtboard/protocol.
+    handlers.onPluginVersion(new URL(req.url ?? '/', 'ws://localhost').searchParams.get('version'))
     ws.on('close', report)
     ws.on('message', (data) => {
       let msg: PluginToApp

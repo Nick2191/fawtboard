@@ -39,6 +39,8 @@ export type Settings = {
   accent: string
   /** Folder the Add sounds picker opens in; null reopens wherever sounds were last added from. */
   addFolder: string | null
+  /** Install downloaded updates when fawtboard quits or next starts, without asking. */
+  autoUpdate: boolean
 }
 
 export type Library = {
@@ -59,4 +61,15 @@ export type StreamDeckStatus = {
   state: 'starting' | 'listening' | 'unavailable'
   clients: number
   port: number
+}
+
+export type UpdateStatus = {
+  /** Version of the running app. */
+  version: string
+  /** `unsupported`: this build can't update itself (development, or not the Windows installer). */
+  state: 'unsupported' | 'idle' | 'checking' | 'downloading' | 'ready' | 'error'
+  /** The newer version being downloaded (`downloading`) or waiting to install (`ready`). */
+  available?: string
+  /** Plugin version bundled with this app, set while the connected Stream Deck plugin is older. */
+  pluginUpdate?: string
 }

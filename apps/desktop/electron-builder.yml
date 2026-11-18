@@ -11,6 +11,16 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+# Build the plugin first (npm run pack -w @fawtboard/streamdeck-plugin); the app offers it to
+# Stream Deck when the installed plugin is older.
+extraResources:
+  - from: ../streamdeck-plugin/dist/com.nick2191.fawtboard.streamDeckPlugin
+    to: com.nick2191.fawtboard.streamDeckPlugin
+# Where electron-updater looks for new versions. The release workflow uploads the files.
+publish:
+  provider: github
+  owner: Nick2191
+  repo: fawtboard
 win:
   executableName: fawtboard
   target:

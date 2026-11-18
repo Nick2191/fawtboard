@@ -6,7 +6,8 @@ import type {
   Settings,
   Sound,
   SoundPatch,
-  StreamDeckStatus
+  StreamDeckStatus,
+  UpdateStatus
 } from '../shared/types'
 
 function subscribe<A extends unknown[]>(channel: string, cb: (...args: A) => void): () => void {
@@ -44,6 +45,10 @@ const fawtboard = {
   setSoundImage: (id: string, png: ArrayBuffer | null): Promise<void> =>
     ipcRenderer.invoke('sound:setImage', id, png),
   getStreamDeckStatus: (): Promise<StreamDeckStatus> => ipcRenderer.invoke('streamDeck:status'),
+  getUpdateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke('update:status'),
+  checkForUpdates: (): Promise<void> => ipcRenderer.invoke('update:check'),
+  installUpdate: (): Promise<void> => ipcRenderer.invoke('update:install'),
+  installPluginUpdate: (): Promise<void> => ipcRenderer.invoke('update:installPlugin'),
   onLibraryChanged: (cb: (library: Library) => void): (() => void) =>
     subscribe('library:changed', cb),
   // The callback's answer goes back to main so a Stream Deck key can show when a play failed.
@@ -53,7 +58,9 @@ const fawtboard = {
     ),
   onStopAll: (cb: () => void): (() => void) => subscribe('engine:stopAll', cb),
   onStreamDeckStatus: (cb: (status: StreamDeckStatus) => void): (() => void) =>
-    subscribe('streamDeck:status', cb)
+    subscribe('streamDeck:status', cb),
+  onUpdateStatus: (cb: (status: UpdateStatus) => void): (() => void) =>
+    subscribe('update:status', cb)
 }
 
 contextBridge.exposeInMainWorld('fawtboard', fawtboard)

@@ -25,7 +25,7 @@ function defaultLibrary(): Library {
       monitorVolume: 1,
       broadcastVolume: 1
     },
-    settings: { theme: 'dark', accent: 'violet', addFolder: null }
+    settings: { theme: 'dark', accent: 'violet', addFolder: null, autoUpdate: false }
   }
 }
 

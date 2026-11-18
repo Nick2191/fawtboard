@@ -21,6 +21,7 @@ import icon from '../../resources/icon.png?asset'
 import { SoundImages } from './images'
 import { LibraryStore } from './library'
 import { startWsServer } from './ws-server'
+import { Updater } from './updater'
 import {
   AUDIO_EXTENSIONS,
   IMAGE_SCHEME,
@@ -28,7 +29,8 @@ import {
   type Settings,
   type Sound,
   type SoundPatch,
-  type StreamDeckStatus
+  type StreamDeckStatus,
+  type UpdateStatus
 } from '../shared/types'
 
 const AUDIO_FILTERS = [{ name: 'Audio', extensions: AUDIO_EXTENSIONS }]
@@ -130,10 +132,10 @@ function createWindow(): BrowserWindow {
   return win
 }
 
-function createTray(): void {
+function createTray(updater: Updater): void {
   tray = new Tray(icon)
   tray.setToolTip('fawtboard')
-  tray.setContextMenu(
+  const buildMenu = ({ state, available, pluginUpdate }: UpdateStatus): Menu =>
     Menu.buildFromTemplate([
       { label: 'Show fawtboard', click: showWindow },
       {
@@ -141,6 +143,12 @@ function createTray(): void {
         click: () => mainWindow?.webContents.send('engine:stopAll')
       },
       { type: 'separator' },
+      ...(state === 'ready'
+        ? [{ label: `Restart to update to ${available}`, click: () => updater.install() }]
+        : []),
+      ...(pluginUpdate
+        ? [{ label: 'Update Stream Deck plugin', click: () => updater.installPlugin() }]
+        : []),
       {
         label: 'Quit',
         click: () => {
@@ -149,7 +157,8 @@ function createTray(): void {
         }
       }
     ])
-  )
+  tray.setContextMenu(buildMenu(updater.get()))
+  updater.on('changed', (status) => tray?.setContextMenu(buildMenu(status)))
   tray.on('click', showWindow)
 }
 
@@ -185,7 +194,8 @@ function createPlayer(win: BrowserWindow): (soundId: string) => Promise<boolean>
 function registerIpc(
   store: LibraryStore,
   images: SoundImages,
-  streamDeckStatus: () => StreamDeckStatus
+  streamDeckStatus: () => StreamDeckStatus,
+  updater: Updater
 ): void {
   ipcMain.handle('library:get', () => store.get())
   ipcMain.handle('library:addFiles', async () => {
@@ -253,6 +263,10 @@ function registerIpc(
     store.setSoundImage(id, png ? images.save(new Uint8Array(png)) : undefined)
   )
   ipcMain.handle('streamDeck:status', () => streamDeckStatus())
+  ipcMain.handle('update:status', () => updater.get())
+  ipcMain.handle('update:check', () => updater.check())
+  ipcMain.handle('update:install', () => updater.install())
+  ipcMain.handle('update:installPlugin', () => updater.installPlugin())
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -298,6 +312,8 @@ if (!app.requestSingleInstanceLock()) {
       }
       win.webContents.send('library:changed', library)
     })
+    const updater = new Updater(store, icon, showWindow)
+    updater.on('changed', (status) => win.webContents.send('update:status', status))
     const streamDeckStatus = startWsServer(store, {
       play: createPlayer(win),
       stopAll: () => win.webContents.send('engine:stopAll'),
@@ -305,10 +321,11 @@ if (!app.requestSingleInstanceLock()) {
         const image = store.findSound(soundId)?.image
         return image ? images.dataUrl(image) : null
       },
-      onStatus: (status) => win.webContents.send('streamDeck:status', status)
+      onStatus: (status) => win.webContents.send('streamDeck:status', status),
+      onPluginVersion: (version) => updater.setPluginVersion(version)
     })
-    registerIpc(store, images, streamDeckStatus)
-    createTray()
+    registerIpc(store, images, streamDeckStatus, updater)
+    createTray(updater)
 
     app.on('activate', showWindow)
   })

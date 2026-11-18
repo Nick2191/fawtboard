@@ -1,0 +1,59 @@
+# Every push to main that changes code publishes a GitHub release with the Windows installer,
+# its update metadata (latest.yml, read by the app's updater) and the Stream Deck plugin.
+# scripts/install.ps1 and scripts/install-streamdeck-plugin.ps1 install from the latest one.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # stamp-version.mjs counts commits.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # After npm ci, which refuses a package.json that no longer matches the lockfile.
+      - id: version
+        run: node scripts/stamp-version.mjs
+
+      # The plugin goes first: the app bundles it.
+      - run: npm run pack -w @fawtboard/streamdeck-plugin
+
+      - run: npm run build:win -w @fawtboard/desktop -- --publish never
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.app }}
+        run: |
+          gh release create "v$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "fawtboard $VERSION" \
+            --generate-notes \
+            "apps/desktop/dist/fawtboard-$VERSION-setup.exe" \
+            "apps/desktop/dist/fawtboard-$VERSION-setup.exe.blockmap" \
+            apps/desktop/dist/latest.yml \
+            apps/streamdeck-plugin/dist/com.nick2191.fawtboard.streamDeckPlugin

@@ -5,7 +5,8 @@ import type {
   Settings,
   Sound,
   SoundPatch,
-  StreamDeckStatus
+  StreamDeckStatus,
+  UpdateStatus
 } from '../shared/types'
 
 export interface FawtboardApi {
@@ -30,11 +31,18 @@ export interface FawtboardApi {
   /** `png` is the prepared key image; null removes the sound's image. */
   setSoundImage(id: string, png: ArrayBuffer | null): Promise<void>
   getStreamDeckStatus(): Promise<StreamDeckStatus>
+  getUpdateStatus(): Promise<UpdateStatus>
+  checkForUpdates(): Promise<void>
+  /** Quits, installs the downloaded update and restarts; does nothing until one is ready. */
+  installUpdate(): Promise<void>
+  /** Opens the plugin bundled with the app in Stream Deck, which installs it. */
+  installPluginUpdate(): Promise<void>
   onLibraryChanged(cb: (library: Library) => void): () => void
   /** `cb` returns whether the sound could be played. */
   onPlay(cb: (id: string) => boolean): () => void
   onStopAll(cb: () => void): () => void
   onStreamDeckStatus(cb: (status: StreamDeckStatus) => void): () => void
+  onUpdateStatus(cb: (status: UpdateStatus) => void): () => void
 }
 
 declare global {
