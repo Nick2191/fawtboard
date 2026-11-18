@@ -5,3 +5,5 @@ out/
 apps/streamdeck-plugin/*.sdPlugin/bin/
 apps/streamdeck-plugin/*.sdPlugin/logs/
 test-sounds/
+# Notes for one machine's setup (audio routing), kept out of the repository.
+personal/
