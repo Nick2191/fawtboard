@@ -66,7 +66,7 @@ Clone, build both installers and install them yourself; see [Build it yourself](
 
 ## Updates
 
-Each push to `main` that changes code publishes a new release. The app checks every hour and downloads new versions in the background. When one is ready, it shows a notification, an arrow button in the toolbar and a tray menu item, and installs when you choose. Turn on **Settings → Updates → Install updates automatically** to have updates install when fawtboard quits or next starts.
+Each push to `main` that changes code publishes a new release. The app checks every hour and downloads new versions in the background. When one is ready, it shows a notification, a glowing arrow in the status bar and a tray menu item, and installs when you choose. Turn on **Settings → Updates → Install updates automatically** to have updates install when fawtboard quits or next starts.
 
 The app also bundles the matching Stream Deck plugin, and offers to install it when the plugin you have is older. [docs/new-machine-setup.md](docs/new-machine-setup.md#2-updates) has the details.
 

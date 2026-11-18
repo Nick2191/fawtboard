@@ -26,8 +26,8 @@ To put a sound on a Stream Deck key, drag **fawtboard → Play Sound** onto the 
 
 Every push to `main` that changes code runs [.github/workflows/release.yml](../.github/workflows/release.yml). It builds both packages on Windows and publishes them as release `v1.0.<commits on main>`. Pushes that only touch docs or Markdown don't make a release.
 
-- **App**: fawtboard checks for a new release at startup and then every hour, and downloads it in the background. Once it has downloaded, a notification appears, an arrow button shows in the toolbar, and the tray menu offers **Restart to update**. **Settings → Updates** shows the same and has **Install updates automatically**. With that on, a downloaded update installs when you quit fawtboard, or at the next start if it never quit cleanly.
-- **Stream Deck plugin**: each app release bundles the matching plugin. When the plugin that connects is older, fawtboard offers **Install in Stream Deck** (toolbar arrow, tray, Settings → Updates). With automatic updates on, it opens the plugin in Stream Deck by itself, once per version. The plugin's version only changes when the plugin's code does.
+- **App**: fawtboard checks for a new release at startup and then every hour, and downloads it in the background. Once it has downloaded, a notification appears, a glowing arrow shows at the right of the status bar, and the tray menu offers **Restart to update**. **Settings → Updates** shows the same and has **Install updates automatically**. With that on, a downloaded update installs when you quit fawtboard, or at the next start if it never quit cleanly.
+- **Stream Deck plugin**: each app release bundles the matching plugin. When the plugin that connects is older, fawtboard offers **Install in Stream Deck** (status bar arrow, tray, Settings → Updates). With automatic updates on, it opens the plugin in Stream Deck by itself, once per version. The plugin's version only changes when the plugin's code does.
 
 Running the install commands again also updates. Your board and settings are kept either way.
 

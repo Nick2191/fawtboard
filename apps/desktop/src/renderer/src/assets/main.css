@@ -441,11 +441,6 @@ kbd {
   padding: 0;
 }
 
-.btn-update {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-}
-
 /* ---------- Outputs (Settings → Audio) ---------- */
 
 .outputs {
@@ -979,6 +974,30 @@ kbd {
 
 .status-warning i {
   background: var(--warning);
+}
+
+/* Shown only while an app or Stream Deck plugin update is waiting to install. */
+.status-update {
+  justify-content: center;
+  width: 22px;
+  padding: 0;
+  color: var(--accent);
+  filter: drop-shadow(0 0 4px var(--accent));
+  animation: update-glow 2.4s ease-in-out infinite;
+}
+
+.status-update:hover {
+  color: var(--accent);
+}
+
+@keyframes update-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px var(--accent));
+  }
+  50% {
+    filter: drop-shadow(0 0 7px var(--accent));
+  }
 }
 
 /* ---------- Drop overlay ---------- */

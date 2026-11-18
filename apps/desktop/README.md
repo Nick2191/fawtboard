@@ -17,7 +17,7 @@ A lightweight soundboard. Every sound plays to two outputs at once: one you hear
 - **Audio**: pick a device and volume for **You hear** and **Others hear**. **Test** plays a short tone on that output only. The status bar shows where each output is going.
 - **Library**: choose whether the **Add sounds** file picker opens in the folder you last added from, or always in one folder you pick.
 - **Appearance**: System, Light or Dark theme, and an accent color.
-- **Updates**: the running version, a downloaded update or Stream Deck plugin update waiting to install, and **Install updates automatically**. An arrow button in the toolbar opens it when something is waiting.
+- **Updates**: the running version, a downloaded update or Stream Deck plugin update waiting to install, and **Install updates automatically**. A glowing arrow at the right of the status bar opens it when something is waiting.
 
 Closing the window keeps fawtboard running in the tray so Stream Deck keys keep working. Quit from the tray menu.
 

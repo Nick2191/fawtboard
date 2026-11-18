@@ -289,20 +289,6 @@ function App(): React.JSX.Element {
             <Plus size={16} aria-hidden />
             Add sounds
           </button>
-          {(update?.state === 'ready' || update?.pluginUpdate) && (
-            <button
-              className="btn btn-icon btn-update"
-              aria-label="Updates"
-              title={
-                update.state === 'ready'
-                  ? `fawtboard ${update.available} is ready to install`
-                  : 'A Stream Deck plugin update is ready to install'
-              }
-              onClick={() => setSettingsTab('updates')}
-            >
-              <CircleArrowUp size={17} aria-hidden />
-            </button>
-          )}
           <button
             className="btn btn-icon"
             aria-label="Settings"
@@ -434,6 +420,20 @@ function App(): React.JSX.Element {
               </span>
             </div>
           ) : null}
+          {(update?.state === 'ready' || update?.pluginUpdate) && (
+            <button
+              className="status-btn status-update"
+              aria-label="Updates"
+              title={
+                update.state === 'ready'
+                  ? `fawtboard ${update.available} is ready to install`
+                  : 'A Stream Deck plugin update is ready to install'
+              }
+              onClick={() => setSettingsTab('updates')}
+            >
+              <CircleArrowUp size={14} aria-hidden />
+            </button>
+          )}
         </div>
       </footer>
 
