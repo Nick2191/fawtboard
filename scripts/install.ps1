@@ -15,11 +15,17 @@
     Write-Host "Downloading fawtboard $($release.tag_name)..."
     Invoke-WebRequest $asset.browser_download_url -OutFile $installer
 
-    # Silent per-user install into %LOCALAPPDATA%\Programs; closes a running fawtboard first.
+    # Silent per-user install; closes a running fawtboard first and upgrades an existing install
+    # wherever it is.
     Write-Host 'Installing...'
     Start-Process $installer -ArgumentList '/S' -Wait
     Remove-Item $installer
 
-    Start-Process (Join-Path $env:LOCALAPPDATA 'Programs\fawtboard\fawtboard.exe')
+    # The install folder is named by electron-builder (%LOCALAPPDATA%\Programs\@fawtboarddesktop
+    # today), so ask the uninstall entry the installer writes; its DisplayIcon is "<exe>,0".
+    $entry = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' |
+        Where-Object DisplayName -Like 'fawtboard*' | Select-Object -First 1
+    if (-not $entry) { throw 'The installer finished but fawtboard is not registered as installed.' }
+    Start-Process ($entry.DisplayIcon -replace ',\d+$', '')
     Write-Host "fawtboard $($release.tag_name) is installed and running in the tray."
 }
