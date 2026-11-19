@@ -15,6 +15,20 @@ export type Sound = {
   color?: string
   /** File name of this sound's picture in the app's images folder, shown on its pad and Stream Deck key. */
   image?: string
+  /** Set while filePath is a trimmed copy in the app's sounds folder. */
+  trim?: SoundTrim
+}
+
+/** Where a trimmed sound was cut from: the original file and the kept range, in seconds. */
+export type SoundTrim = { source: string; start: number; end: number }
+
+/** What the trimmer edits: the original when it is still readable, else the sound's current file. */
+export type TrimSource = {
+  bytes: ArrayBuffer
+  /** File the bytes came from; becomes `SoundTrim.source` when a trim is saved. */
+  path: string
+  /** The saved range within `path`; null when `path` is not a trimmed sound's original. */
+  range: { start: number; end: number } | null
 }
 
 export type DeviceRef = { deviceId: string; label: string } | null

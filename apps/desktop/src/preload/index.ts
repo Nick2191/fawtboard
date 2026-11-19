@@ -6,7 +6,9 @@ import type {
   Settings,
   Sound,
   SoundPatch,
+  SoundTrim,
   StreamDeckStatus,
+  TrimSource,
   UpdateStatus
 } from '../shared/types'
 
@@ -40,6 +42,10 @@ const fawtboard = {
     ipcRenderer.invoke('settings:set', patch),
   chooseAddFolder: (): Promise<boolean> => ipcRenderer.invoke('settings:chooseAddFolder'),
   readSound: (id: string): Promise<ArrayBuffer> => ipcRenderer.invoke('sound:read', id),
+  readTrimSource: (id: string): Promise<TrimSource> =>
+    ipcRenderer.invoke('sound:readTrimSource', id),
+  saveTrim: (id: string, trim: SoundTrim, wav: ArrayBuffer | null): Promise<void> =>
+    ipcRenderer.invoke('sound:saveTrim', id, trim, wav),
   revealSound: (id: string): Promise<void> => ipcRenderer.invoke('sound:reveal', id),
   pickImage: (): Promise<ArrayBuffer | null> => ipcRenderer.invoke('image:pick'),
   setSoundImage: (id: string, png: ArrayBuffer | null): Promise<void> =>

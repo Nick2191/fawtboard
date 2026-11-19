@@ -5,7 +5,9 @@ import type {
   Settings,
   Sound,
   SoundPatch,
+  SoundTrim,
   StreamDeckStatus,
+  TrimSource,
   UpdateStatus
 } from '../shared/types'
 
@@ -25,6 +27,10 @@ export interface FawtboardApi {
   /** Opens a folder picker for the Add sounds folder; resolves false when cancelled. */
   chooseAddFolder(): Promise<boolean>
   readSound(id: string): Promise<ArrayBuffer>
+  /** The trimmer's input: the original when available; see TrimSource. */
+  readTrimSource(id: string): Promise<TrimSource>
+  /** `wav` null keeps the whole of `trim.source` and clears the trim. */
+  saveTrim(id: string, trim: SoundTrim, wav: ArrayBuffer | null): Promise<void>
   revealSound(id: string): Promise<void>
   /** Opens the file picker and resolves with the chosen image's bytes, or null when cancelled. */
   pickImage(): Promise<ArrayBuffer | null>

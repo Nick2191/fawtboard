@@ -11,7 +11,8 @@ import {
   type Library,
   type Settings,
   type Sound,
-  type SoundPatch
+  type SoundPatch,
+  type SoundTrim
 } from '../shared/types'
 
 function defaultLibrary(): Library {
@@ -102,7 +103,12 @@ export class LibraryStore extends EventEmitter<{ changed: [Library] }> {
 
   /** Points a sound at a different file, keeping its id so Stream Deck keys stay bound. */
   relinkSound(id: string, filePath: string): void {
-    this.patchSound(id, { filePath })
+    this.patchSound(id, { filePath, trim: undefined })
+  }
+
+  /** Points a sound at its trimmed copy, or (trim undefined) back at a plain file; keeps its id. */
+  setTrim(id: string, filePath: string, trim: SoundTrim | undefined): void {
+    this.patchSound(id, { filePath, trim })
   }
 
   /** `image` is a file name from SoundImages; undefined removes the sound's image. */

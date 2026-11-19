@@ -20,6 +20,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { SoundImages } from './images'
 import { LibraryStore } from './library'
+import { TrimmedSounds } from './trims'
 import { startWsServer } from './ws-server'
 import { Updater } from './updater'
 import {
@@ -29,7 +30,9 @@ import {
   type Settings,
   type Sound,
   type SoundPatch,
+  type SoundTrim,
   type StreamDeckStatus,
+  type TrimSource,
   type UpdateStatus
 } from '../shared/types'
 
@@ -168,6 +171,16 @@ function showOpenDialog(
   return mainWindow ? dialog.showOpenDialog(mainWindow, options) : dialog.showOpenDialog(options)
 }
 
+async function readSoundFile(filePath: string): Promise<ArrayBuffer> {
+  let buf: Buffer
+  try {
+    buf = await readFile(filePath)
+  } catch {
+    throw new Error(`Sound file not found: ${filePath}`)
+  }
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer
+}
+
 /**
  * Plays a sound in the renderer's engine and resolves with whether it could: false when the
  * sound is gone, its file is missing or undecodable, or the renderer doesn't answer.
@@ -194,6 +207,7 @@ function createPlayer(win: BrowserWindow): (soundId: string) => Promise<boolean>
 function registerIpc(
   store: LibraryStore,
   images: SoundImages,
+  trims: TrimmedSounds,
   streamDeckStatus: () => StreamDeckStatus,
   updater: Updater
 ): void {
@@ -238,16 +252,29 @@ function registerIpc(
     store.setSettings({ addFolder: result.filePaths[0] })
     return true
   })
-  ipcMain.handle('sound:read', async (_e, id: string) => {
+  ipcMain.handle('sound:read', (_e, id: string) => {
     const sound = store.findSound(id)
     if (!sound) throw new Error(`Sound file not found: <unknown sound ${id}>`)
-    let buf: Buffer
-    try {
-      buf = await readFile(sound.filePath)
-    } catch {
-      throw new Error(`Sound file not found: ${sound.filePath}`)
+    return readSoundFile(sound.filePath)
+  })
+  ipcMain.handle('sound:readTrimSource', async (_e, id: string): Promise<TrimSource> => {
+    const sound = store.findSound(id)
+    if (!sound) throw new Error(`Sound file not found: <unknown sound ${id}>`)
+    if (sound.trim) {
+      const { source, start, end } = sound.trim
+      try {
+        return { bytes: await readSoundFile(source), path: source, range: { start, end } }
+      } catch {
+        // The original is gone; trim the current copy instead.
+      }
     }
-    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)
+    return { bytes: await readSoundFile(sound.filePath), path: sound.filePath, range: null }
+  })
+  ipcMain.handle('sound:saveTrim', (_e, id: string, trim: SoundTrim, wav: ArrayBuffer | null) => {
+    // Removed while the trimmer was open: write nothing.
+    if (!store.findSound(id)) return
+    if (wav) store.setTrim(id, trims.save(new Uint8Array(wav)), trim)
+    else store.setTrim(id, trim.source, undefined)
   })
   ipcMain.handle('sound:reveal', (_e, id: string) => {
     const sound = store.findSound(id)
@@ -297,6 +324,13 @@ if (!app.requestSingleInstanceLock()) {
     const store = new LibraryStore(join(userData, 'library.json'))
     const images = new SoundImages(join(userData, 'images'))
     images.prune(new Set(store.get().sounds.flatMap((s) => s.image ?? [])))
+    // A trim's source is kept too: when its original was gone it can itself be a copy here.
+    const trims = new TrimmedSounds(join(userData, 'sounds'))
+    trims.prune(
+      new Set(
+        store.get().sounds.flatMap((s) => (s.trim ? [s.filePath, s.trim.source] : [s.filePath]))
+      )
+    )
     protocol.handle(IMAGE_SCHEME, (request) =>
       net.fetch(pathToFileURL(images.file(decodeURIComponent(new URL(request.url).pathname))).href)
     )
@@ -324,7 +358,7 @@ if (!app.requestSingleInstanceLock()) {
       onStatus: (status) => win.webContents.send('streamDeck:status', status),
       onPluginVersion: (version) => updater.setPluginVersion(version)
     })
-    registerIpc(store, images, streamDeckStatus, updater)
+    registerIpc(store, images, trims, streamDeckStatus, updater)
     createTray(updater)
 
     app.on('activate', showWindow)

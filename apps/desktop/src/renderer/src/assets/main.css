@@ -1321,6 +1321,86 @@ kbd {
   border-top: 1px solid var(--border);
 }
 
+/* ---------- Trimmer ---------- */
+
+.trimmer {
+  width: 560px;
+}
+
+.trim-wave {
+  position: relative;
+  height: 96px;
+  background: var(--inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  touch-action: none;
+  cursor: ew-resize;
+}
+
+.trim-wave canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: var(--accent);
+}
+
+.trim-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  font-size: 13px;
+  color: var(--text-faint);
+  cursor: default;
+}
+
+.trim-shade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--scrim-strong);
+  pointer-events: none;
+}
+
+.trim-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  margin-left: -6px;
+  cursor: ew-resize;
+}
+
+.trim-handle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 2px;
+  background: var(--text);
+}
+
+.trim-handle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.trim-readout {
+  flex: 1;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.trim-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
 /* ---------- Toasts ---------- */
 
 .toasts {

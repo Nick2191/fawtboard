@@ -73,6 +73,8 @@ It does not carry the sound files. fawtboard plays them from wherever they were 
 - If you pinned a folder under Settings → Library, pick it again.
 - Check Settings → Audio. Devices the new machine doesn't have show as unplugged until you pick others.
 
+Trimmed sounds play from copies in the `sounds` folder; copy it too. Their paths change with the data folder, so they need **Replace file…** like any other moved sound (pick the copy in the new `sounds` folder), or trim the original again.
+
 Copying `library.json` keeps each sound's id, and Stream Deck keys are bound to those ids. A Stream Deck profile you restore on the new machine therefore keeps working; on a fresh profile, pick each key's sound again.
 
 If you would rather start clean, skip this section and add your sounds in the app.

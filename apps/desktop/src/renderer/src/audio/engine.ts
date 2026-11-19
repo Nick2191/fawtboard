@@ -5,6 +5,15 @@ import {
   type Sound
 } from '../../../shared/types'
 
+// Chromium only says "Unable to decode audio data", which tells a user nothing.
+const DECODE_ERROR = 'This file is damaged or isn’t in an audio format fawtboard can play.'
+
+/** A readable message for `err`; ipcRenderer.invoke's wrapper around main-process errors is dropped. */
+export function errorMessage(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err)
+  return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+}
+
 type SinkId = string | { type: 'none' }
 
 /** Where an output currently goes. `missing`: a device was chosen but is not plugged in. */
@@ -79,6 +88,30 @@ class AudioOutput {
       this.onEnded()
     }
     source.start()
+  }
+
+  /**
+   * Plays part of a buffer outside the pads: it never counts as playing, so Stop all and
+   * `playingCount` ignore it. Returns a function that stops it.
+   */
+  playClip(
+    buffer: AudioBuffer,
+    offset: number,
+    duration: number,
+    volume: number,
+    onEnded: () => void
+  ): () => void {
+    if (this.ctx.state === 'suspended') void this.ctx.resume()
+    const source = this.ctx.createBufferSource()
+    source.buffer = buffer
+    const gain = new GainNode(this.ctx, { gain: volume })
+    source.connect(gain).connect(this.master)
+    source.onended = () => {
+      gain.disconnect()
+      onEnded()
+    }
+    source.start(0, offset, duration)
+    return () => source.stop()
   }
 
   stop(id: string): void {
@@ -204,14 +237,11 @@ export class AudioEngine extends EventTarget {
     let error: string | null = null
     try {
       const bytes = await window.fawtboard.readSound(id)
-      // Chromium only says "Unable to decode audio data", which tells a user nothing.
       await Promise.all(this.both.map((o) => o.load(id, bytes))).catch(() => {
-        throw new Error('This file is damaged or isn’t in an audio format fawtboard can play.')
+        throw new Error(DECODE_ERROR)
       })
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      // ipcRenderer.invoke wraps main-process errors; keep only the original message.
-      error = message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+      error = errorMessage(err)
     }
     this.loading.delete(id)
 
@@ -258,6 +288,26 @@ export class AudioEngine extends EventTarget {
   /** Length in seconds, once the sound has been decoded. */
   duration(id: string): number | undefined {
     return this.monitor.buffers.get(id)?.duration
+  }
+
+  /** Decodes bytes at the monitor's rate, for the trimmer. Detaches `bytes`. */
+  async decode(bytes: ArrayBuffer): Promise<AudioBuffer> {
+    try {
+      return await this.monitor.ctx.decodeAudioData(bytes)
+    } catch {
+      throw new Error(DECODE_ERROR)
+    }
+  }
+
+  /** Plays `start`–`end` of `buffer` on the monitor output only, so the broadcast never hears it. */
+  preview(
+    buffer: AudioBuffer,
+    start: number,
+    end: number,
+    volume: number,
+    onEnded: () => void
+  ): () => void {
+    return this.monitor.playClip(buffer, start, end - start, volume, onEnded)
   }
 
   /** Retries a sound that failed to load, e.g. after its drive was reconnected. */

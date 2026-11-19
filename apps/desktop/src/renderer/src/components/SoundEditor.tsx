@@ -4,6 +4,7 @@ import {
   ImagePlus,
   Play,
   Replace,
+  Scissors,
   Square,
   Trash2,
   TriangleAlert,
@@ -13,6 +14,7 @@ import type { AudioEngine } from '../audio/engine'
 import type { PlayMode, Sound } from '../../../shared/types'
 import { PAD_COLORS, padColor, type PadColor } from '../lib/colors'
 import { soundImageUrl, toKeyImage } from '../lib/keyImage'
+import { formatTimestamp } from '../lib/format'
 import { PLAY_MODES } from '../lib/modes'
 import Modal from './Modal'
 import Slider from './Slider'
@@ -22,6 +24,7 @@ type Props = {
   engine: AudioEngine
   onClose(): void
   onRemove(): void
+  onTrim(): void
 }
 
 /** Every control applies immediately; there is nothing to save or cancel. */
@@ -29,7 +32,8 @@ export default function SoundEditor({
   sound,
   engine,
   onClose,
-  onRemove
+  onRemove,
+  onTrim
 }: Props): React.JSX.Element {
   const dialog = useRef<HTMLDialogElement>(null)
   const api = window.fawtboard
@@ -209,10 +213,20 @@ export default function SoundEditor({
           <p className="file-path" title={sound.filePath}>
             {sound.filePath}
           </p>
+          {sound.trim && (
+            <p className="field-hint">
+              Trimmed copy of {sound.trim.source}, {formatTimestamp(sound.trim.start)}–
+              {formatTimestamp(sound.trim.end)}
+            </p>
+          )}
           <div className="field-row">
             <button className="btn btn-small" onClick={() => void api.revealSound(sound.id)}>
               <FolderOpen size={14} aria-hidden />
               Show in folder
+            </button>
+            <button className="btn btn-small" onClick={onTrim}>
+              <Scissors size={14} aria-hidden />
+              Trim…
             </button>
             <button className="btn btn-small" onClick={() => void api.relinkSound(sound.id)}>
               <Replace size={14} aria-hidden />

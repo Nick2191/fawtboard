@@ -19,6 +19,7 @@ import SettingsDialog, { type SettingsTab } from './components/SettingsDialog'
 import SoundEditor from './components/SoundEditor'
 import SoundPad from './components/SoundPad'
 import Toasts from './components/Toasts'
+import TrimDialog from './components/TrimDialog'
 import { useToasts } from './hooks/useToasts'
 import { accentHue } from './lib/accents'
 import {
@@ -46,6 +47,15 @@ function App(): React.JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null)
   /** The open Settings section, or null while Settings is closed. */
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null)
+  /**
+   * Sounds waiting for the trimmer, shown one after another from `index`. `reopenEditor`: the
+   * trimmer was opened from the editor, which comes back once it closes.
+   */
+  const [trimming, setTrimming] = useState<{
+    ids: string[]
+    index: number
+    reopenEditor: boolean
+  } | null>(null)
   /** Ids added a moment ago: scrolled into view and flashed so they're easy to find. */
   const [recent, setRecent] = useState<string[]>([])
   const [fileDrag, setFileDrag] = useState(false)
@@ -98,6 +108,11 @@ function App(): React.JSX.Element {
     setQuery('')
     const ids = added.map((s) => s.id)
     setRecent(ids)
+    // The editor never sits under the trimmer. Sounds added while it is open join its queue.
+    setEditingId(null)
+    setTrimming((t) =>
+      t ? { ...t, ids: [...t.ids, ...ids] } : { ids, index: 0, reopenEditor: false }
+    )
     setTimeout(() => setRecent((current) => (current === ids ? [] : current)), 2000)
   }
 
@@ -146,8 +161,8 @@ function App(): React.JSX.Element {
   }, [])
 
   const onKeyDown = useEffectEvent((e: KeyboardEvent) => {
-    // The editor and Settings are modal and handle their own keys.
-    if (editingId || settingsTab) return
+    // The editor, Settings and the trimmer are modal and handle their own keys.
+    if (editingId || settingsTab || trimming) return
     const typing = e.target instanceof HTMLInputElement && e.target.type !== 'range'
     const mod = e.ctrlKey || e.metaKey
     const key = e.key.toLowerCase()
@@ -189,15 +204,36 @@ function App(): React.JSX.Element {
   if (!library) return <div className="app" />
   const { audio, sounds } = library
 
+  // The first queued sound that still exists, from where the trimmer is up to.
+  const trimIndex = trimming
+    ? trimming.ids.findIndex((id, i) => i >= trimming.index && sounds.some((s) => s.id === id))
+    : -1
+  // Every sound left in the queue was removed. Reset during render, as React suggests for
+  // state derived from props, rather than in an effect.
+  if (trimming && trimIndex === -1) setTrimming(null)
+
   const ordered = dragOrder
     ? dragOrder.flatMap((id) => sounds.find((s) => s.id === id) ?? [])
     : sounds
   const needle = query.trim().toLowerCase()
   const visible = needle ? ordered.filter((s) => s.name.toLowerCase().includes(needle)) : ordered
   const editing = sounds.find((s) => s.id === editingId)
+  const trimSound =
+    trimming && trimIndex >= 0 ? sounds.find((s) => s.id === trimming.ids[trimIndex]) : undefined
   const playingCount = engine.playingCount
   const routes = OUTPUT_NAMES.map((name) => engine.route(name).kind)
   const silent = engine.outputsReady && routes.every((kind) => kind === 'off' || kind === 'missing')
+
+  const finishTrim = (id: string, index: number): void => {
+    if (!trimming) return
+    const next = trimming.ids.findIndex((qid, i) => i > index && sounds.some((s) => s.id === qid))
+    if (next >= 0) {
+      setTrimming({ ...trimming, index: next })
+      return
+    }
+    setTrimming(null)
+    if (trimming.reopenEditor) setEditingId(id)
+  }
 
   /** Shows the new order at once; the library echo that follows confirms it. */
   const commitOrder = (ids: string[]): void => {
@@ -454,6 +490,23 @@ function App(): React.JSX.Element {
           engine={engine}
           onClose={() => setEditingId(null)}
           onRemove={() => remove(editing)}
+          onTrim={() => {
+            setEditingId(null)
+            setTrimming({ ids: [editing.id], index: 0, reopenEditor: true })
+          }}
+        />
+      )}
+
+      {trimming && trimSound && (
+        <TrimDialog
+          key={trimSound.id}
+          sound={trimSound}
+          engine={engine}
+          progress={
+            trimming.ids.length > 1 ? `${trimIndex + 1} of ${trimming.ids.length}` : undefined
+          }
+          onSkipAll={trimIndex < trimming.ids.length - 1 ? () => setTrimming(null) : undefined}
+          onDone={() => finishTrim(trimSound.id, trimIndex)}
         />
       )}
 
